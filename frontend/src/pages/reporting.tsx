@@ -6,6 +6,10 @@ import { api, errorMessage } from '@/lib/account-api'
 type Register = { mode: string; canPrepare: boolean; canSimulate: boolean; total: number; items: {
   id: string; type: string; number: string; date: string; developmentFixture: boolean; prepared: boolean; simulated: boolean
 }[] }
+type Readiness = { registeredName: string; taxpayerVerification: string; registrationEvidenceCount: number
+  companyRdo: { code: string } | null
+  branches: { code: string; name: string; rdo: { code: string } | null }[]
+}
 type Detail = { sha256: string; schemaVersion: string; content: unknown; governmentStatus: string }
 
 export function ReportingWorkspace({ base }: { base: string }) {
@@ -14,6 +18,7 @@ export function ReportingWorkspace({ base }: { base: string }) {
   const [error, setError] = useState('')
   const [detail, setDetail] = useState<Detail | null>(null)
   const query = useQuery({ queryKey: ['reporting', base, page], queryFn: () => api<Register>(base + '/?page=' + page) })
+  const readiness = useQuery({ queryKey: ['reporting-readiness', base], queryFn: () => api<Readiness>(base + '/readiness') })
   async function act(id: string, action: string) {
     setBusy(true); setError(''); setDetail(null)
     try {
@@ -31,6 +36,19 @@ export function ReportingWorkspace({ base }: { base: string }) {
     <p>Prepare internal evidence from committed Sales Invoices and Credit Memos. Sales Orders are excluded.</p>
     <p>The upcoming BIR transmission API is unavailable. These internal records are not an official BIR payload or submission. Live government transmission and production issuance remain disabled.</p>
     <p>Preparation and local simulation use zero Save &amp; Send Credits. Simulation confirms local integrity only and never records government acceptance.</p>
+    <section aria-label="Regulatory readiness">
+      <h3>Taxpayer and branch readiness</h3>
+      {readiness.isPending && <LoadingState label="Loading taxpayer readiness…" />}
+      {readiness.isError && <ErrorState>{errorMessage(readiness.error)}</ErrorState>}
+      {readiness.data && <dl className="workspace-definitions">
+        <div><dt>Registered taxpayer</dt><dd>{readiness.data.registeredName}</dd></div>
+        <div><dt>Taxpayer verification</dt><dd>{readiness.data.taxpayerVerification === 'NotVerified' ? 'Not verified' : readiness.data.taxpayerVerification}</dd></div>
+        <div><dt>Registration evidence</dt><dd>{readiness.data.registrationEvidenceCount}</dd></div>
+        <div><dt>Company RDO</dt><dd>{readiness.data.companyRdo?.code ?? 'Unassigned'}</dd></div>
+        {readiness.data.branches.map(branch => <div key={branch.code}><dt>{branch.code} · {branch.name}</dt>
+          <dd>{branch.rdo ? 'Branch RDO ' + branch.rdo.code : 'No branch RDO assignment'}</dd></div>)}
+      </dl>}
+    </section>
     {error && <ErrorState>{error}</ErrorState>}
     {!query.data.items.length && <p>No eligible committed documents.</p>}
     <div className="table-scroll"><table className="workspace-table"><thead><tr><th>Document</th><th>Date</th><th>Preparation</th><th>Government status</th><th>Actions</th></tr></thead>

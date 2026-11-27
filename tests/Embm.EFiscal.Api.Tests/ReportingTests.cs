@@ -20,6 +20,11 @@ public sealed partial class IdentityTenantTests
         var id = invoice.GetProperty("id").GetGuid();
         var path = f.Path.Replace("/documents", "/reporting");
         var target = path + "/" + id;
+        var readiness = await Json(owner, path + "/readiness");
+        Assert.False(readiness.GetProperty("productionIssuanceEnabled").GetBoolean());
+        Assert.False(readiness.GetProperty("liveTransmissionEnabled").GetBoolean());
+        Assert.Equal("001", readiness.GetProperty("companyRdo").GetProperty("code").GetString());
+        Assert.Single(readiness.GetProperty("branches").EnumerateArray());
         var balance = await Balance(owner, f.Subscriber);
         await Expect(Mutate(owner, target + "/simulate", new { }), HttpStatusCode.Conflict);
         var first = await RequestJson(owner, target + "/prepare", new { });
@@ -50,6 +55,7 @@ public sealed partial class IdentityTenantTests
         using var outsider = Browser();
         await Login(outsider, otherEmail, _password);
         await Expect(outsider.GetAsync(target), HttpStatusCode.NotFound);
+        await Expect(outsider.GetAsync(path + "/readiness"), HttpStatusCode.NotFound);
         await Expect(Mutate(outsider, target + "/prepare", new { }), HttpStatusCode.NotFound);
         await Expect(Mutate(outsider, target + "/simulate", new { }), HttpStatusCode.NotFound);
         Assert.Equal(balance, await Balance(owner, f.Subscriber));

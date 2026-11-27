@@ -56,9 +56,42 @@ internal static class ReportingGateway
         var group = app.MapGroup("/api/workspace/{subscriber:guid}/companies/{company:guid}/reporting")
             .RequireAuthorization("customer").AddEndpointFilter(ApiSupport.Protect).WithTags("Reporting preparation");
         group.MapGet("/", Register);
+        group.MapGet("/readiness", Readiness);
         group.MapGet("/{document:guid}", Detail);
         group.MapPost("/{document:guid}/prepare", Prepare);
         if (app.Environment.IsDevelopment()) group.MapPost("/{document:guid}/simulate", Simulate);
+    }
+
+    private static async Task<IResult> Readiness(Guid subscriber, Guid company, HttpContext http,
+        EfiscalDbContext db, CancellationToken ct)
+    {
+        if (await DocumentEndpoints.Access(subscriber, company, "Reports.View", http, db, ct) is not { } access)
+            return TenantAccess.Missing();
+
+        var taxpayer = await db.TaxpayerProfiles.AsNoTracking()
+            .SingleOrDefaultAsync(x => x.SubscriberId == subscriber && x.CompanyId == company, ct);
+        var branches = await db.Branches.AsNoTracking()
+            .Where(x => x.SubscriberId == subscriber && x.CompanyId == company)
+            .OrderBy(x => x.Code).Select(x => new { x.Id, x.Code, x.Name, x.Type }).ToArrayAsync(ct);
+        var today = DateOnly.FromDateTime(TimeZoneInfo.ConvertTimeBySystemTimeZoneId(DateTimeOffset.UtcNow, "Asia/Manila").DateTime);
+        var assignments = await db.RdoAssignments.AsNoTracking()
+            .Where(x => x.SubscriberId == subscriber && x.CompanyId == company && x.EffectiveFrom <= today &&
+                (x.EffectiveUntil == null || x.EffectiveUntil > today))
+            .OrderByDescending(x => x.EffectiveFrom)
+            .Select(x => new { x.BranchId, x.Code, x.RegistrationStatus }).ToArrayAsync(ct);
+        var evidenceCount = await db.RegistrationEvidence.CountAsync(x => x.SubscriberId == subscriber && x.CompanyId == company, ct);
+
+        return Results.Ok(new
+        {
+            access.Company.RegisteredName,
+            taxpayerVerification = taxpayer?.VerificationStatus.ToString() ?? "NotVerified",
+            registrationEvidenceCount = evidenceCount,
+            companyRdo = assignments.FirstOrDefault(x => x.BranchId == null),
+            branches = branches.Select(branch => new { branch.Code, branch.Name, branch.Type,
+                rdo = assignments.FirstOrDefault(x => x.BranchId == branch.Id) }),
+            productionIssuanceEnabled = false,
+            liveTransmissionEnabled = false
+        });
     }
 
     private static IQueryable<ReportingPreparation> Preparations(EfiscalDbContext db, Guid subscriber, Guid company) =>
