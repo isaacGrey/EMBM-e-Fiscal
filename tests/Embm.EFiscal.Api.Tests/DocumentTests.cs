@@ -107,6 +107,8 @@ public sealed partial class IdentityTenantTests
         Assert.Equal(JsonValueKind.Null, plan.GetProperty("availableCredits").ValueKind);
         var saved = await CommitDocument(owner, f, "SalesOrder", order, plan);
         var orderId = saved.GetProperty("id").GetGuid();
+        await Expect(owner.GetAsync(f.Path + "/SalesOrder/" + orderId + "/structured"), HttpStatusCode.NotFound);
+        await Db(async db => Assert.False(await db.ReportingPreparations.AnyAsync(x => x.DocumentId == orderId)));
         Assert.Equal(0, saved.GetProperty("credits").GetInt32());
         var earlyInvoice = Input(f, "SalesInvoice", "1");
         using (var blocked = await Mutate(owner, f.Path + "/SalesInvoice/commit", Operation(earlyInvoice,

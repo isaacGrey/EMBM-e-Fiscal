@@ -69,3 +69,7 @@ Reporting exposes a separate company authorization register and a preparation-on
 ### Provider accreditation records
 
 The development vendor portal has separate provider application, internal readiness, regulatory source review and material change registers. The registers store revisioned evidence for EMBM Services OPC and EMBM eFiscal. They have no taxpayer evidence access or runtime authorization effect. The project-owner report of a requested presentation is shown separately from the external decision record.
+
+### Canonical electronic invoices
+
+Sales Invoice and Credit Memo commitment stores an embm-invoice-v1 envelope in the same transaction and immutable evidence store as other document evidence. This envelope is separate from embm-preparation-v1 and cannot satisfy the preparation simulator. The canonical serializer writes compact UTF-8 JSON with ordinal object keys and preserves array order. Financial decimals use invariant strings. The financial snapshot hash covers the fiscalSnapshot object in canonical form. The artifact hash covers the exact download bytes. Operational generation metadata is outside both hashes. The payload uses pinned line calculation rules and document snapshots, and records current documented permit references at commitment when applicable on the document date. Legacy generation uses only committed data, reports missing historical evidence, and does not look up current authorizations.

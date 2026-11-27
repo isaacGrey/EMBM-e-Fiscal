@@ -20,9 +20,17 @@ public sealed partial class IdentityTenantTests
         using var owner = await BillingBuyer();
         var f = await PaidCompany(owner, "MEMO");
         var starting = await Balance(owner, f.Subscriber);
-        var inv = Input(f, "SalesInvoice", "2");
+        var inv = Input(f, "SalesInvoice", "2") with { Date = ManilaToday() };
         var issued = await CommitDocument(owner, f, "SalesInvoice", inv, await DocPreview(owner, f, "SalesInvoice", inv));
         var source = issued.GetProperty("id").GetGuid();
+        var invoiceStructuredPath = f.Path + "/SalesInvoice/" + source + "/structured";
+        var structured = await Json(owner, invoiceStructuredPath);
+        var invoiceData = structured.GetProperty("data").GetProperty("fiscalSnapshot");
+        Assert.Equal("224", invoiceData.GetProperty("totals").GetProperty("total").GetString());
+        Assert.Equal("001", invoiceData.GetProperty("seller").GetProperty("rdo").GetString());
+        Assert.Equal("Corporate", invoiceData.GetProperty("buyer").GetProperty("classification").GetString());
+        var structuredBytes = await owner.GetByteArrayAsync(invoiceStructuredPath + "/download");
+        Assert.Equal(structured.GetProperty("sha256").GetString(), Convert.ToHexString(SHA256.HashData(structuredBytes)));
         var sourceLines = await Json(owner, f.Path + "/SalesInvoice/" + source + "/source-lines");
         var original = sourceLines.GetProperty("lines")[0].GetProperty("id").GetGuid();
         await Expect(Mutate(owner, MasterPath(f.Subscriber, f.Company) + "/customers/" + f.Customer, new
@@ -31,7 +39,7 @@ public sealed partial class IdentityTenantTests
             data = new { classification = "Corporate", registeredName = "Changed buyer", email = "new-buyer@example.test" }
         }, HttpMethod.Put), HttpStatusCode.OK);
         var line = new DocumentLineInput(f.Item, f.Unit, "1", null, null, null, null, SourceLineId: original);
-        var credit = Input(f, "CreditMemo") with { CustomerId = null, SourceDocumentId = source, AdjustmentReason = "Partial return",
+        var credit = Input(f, "CreditMemo") with { Date = inv.Date, CustomerId = null, SourceDocumentId = source, AdjustmentReason = "Partial return",
             AdjustmentKind = "Return", Lines = [line] };
         var preview = await DocPreview(owner, f, "CreditMemo", credit);
         Assert.Equal("112", preview.GetProperty("totals").GetProperty("total").GetString());
@@ -39,6 +47,31 @@ public sealed partial class IdentityTenantTests
         var memo = await CommitDocument(owner, f, "CreditMemo", credit, preview);
         Assert.Equal("CM-000001", memo.GetProperty("number").GetString());
         var memoPath = f.Path + "/CreditMemo/" + memo.GetProperty("id").GetGuid();
+        var memoStructured = await Json(owner, memoPath + "/structured");
+        var memoData = memoStructured.GetProperty("data").GetProperty("fiscalSnapshot");
+        Assert.Equal(source, memoData.GetProperty("document").GetProperty("originalInvoiceId").GetGuid());
+        Assert.Equal("Original buyer", memoData.GetProperty("buyer").GetProperty("name").GetString());
+        Assert.Equal("112", memoData.GetProperty("totals").GetProperty("total").GetString());
+        Assert.Equal(structuredBytes, await owner.GetByteArrayAsync(invoiceStructuredPath + "/download"));
+        await Expect(Mutate(owner, invoiceStructuredPath + "/generate", new { }), HttpStatusCode.OK);
+        Assert.Equal(structuredBytes, await owner.GetByteArrayAsync(invoiceStructuredPath + "/download"));
+        await Db(async db =>
+        {
+            var originalInvoice = await db.FiscalDocuments.AsNoTracking().Include(d => d.Snapshot).Include(d => d.Lines).SingleAsync(d => d.Id == source);
+            var first = Modules.Reporting.CanonicalInvoices.Build(originalInvoice, Guid.NewGuid(), DateTimeOffset.UtcNow, null);
+            var second = Modules.Reporting.CanonicalInvoices.Build(originalInvoice, Guid.NewGuid(), DateTimeOffset.UtcNow.AddHours(1), null);
+            Assert.Equal(first.Content, second.Content);
+            Assert.Equal(first.Sha256, second.Sha256);
+            using var data = System.Text.Json.JsonDocument.Parse(first.Content);
+            Assert.Equal(System.Text.Json.JsonValueKind.Null, data.RootElement.GetProperty("documentedAuthorizationReferences").ValueKind);
+            Assert.Contains(data.RootElement.GetProperty("evidenceLimitations").EnumerateArray(),
+                x => x.GetString() == "Authorization references were not captured at commitment.");
+            Assert.Equal(1, await db.ReportingPreparations.CountAsync(x => x.DocumentId == source && x.SchemaVersion == "embm-invoice-v1"));
+        });
+        var (_, _, outsiderEmail) = await SeedSubscriber();
+        using var outsider = Browser();
+        await Login(outsider, outsiderEmail, _password);
+        await Expect(outsider.GetAsync(invoiceStructuredPath + "/download"), HttpStatusCode.NotFound);
         await WaitForDocument(owner, memoPath, row => row.GetProperty("electronicDelivery").GetString() == "AcceptedByProvider");
         await SaveVerificationPdf("phase6-credit-memo.pdf", await owner.GetByteArrayAsync(memoPath + "/pdf"));
         await Expect(Mutate(owner, f.Path + "/CreditMemo/preview", credit with { Lines = [line with { Quantity = "2" }] }), HttpStatusCode.BadRequest);

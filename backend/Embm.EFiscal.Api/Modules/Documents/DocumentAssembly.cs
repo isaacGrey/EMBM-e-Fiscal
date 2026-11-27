@@ -85,7 +85,8 @@ internal sealed class DocumentAssembly(EfiscalDbContext db, FinancialPreview cal
             var person = financial.Customer!;
             customer = new(person.Code, person.Data.Str("registeredName") ?? person.Name, person.Data.Str("tradeName"), person.Data.Str("tin"),
                 person.Data.Str("rdo"), person.Data.Str("registeredAddress"), person.Data.Str("billingAddress"), person.Data.Str("shippingAddress"),
-                person.Data.Str("contact") ?? person.Data.Str("mobile"), person.Data.Str("email"), person.Data.Str("vatStatus"), person.Revision);
+                person.Data.Str("contact") ?? person.Data.Str("mobile"), person.Data.Str("email"), person.Data.Str("vatStatus"),
+                person.Revision, person.Data.Str("classification"));
             var currency = financial.Currency;
             term = financial.PaymentTerm is { } terms ? new { terms.Id, terms.Code, terms.Name, terms.Revision, details = SafeData(terms.Data) } : null;
             exchange = new { currency.Code, rate = Money(currency.ExchangeRate), currency.RateId, currency.RateRevision, currency.RateDate, currency.Source };

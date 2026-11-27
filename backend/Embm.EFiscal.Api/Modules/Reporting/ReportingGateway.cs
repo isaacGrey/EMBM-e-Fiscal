@@ -95,7 +95,7 @@ internal static class ReportingGateway
     }
 
     private static IQueryable<ReportingPreparation> Preparations(EfiscalDbContext db, Guid subscriber, Guid company) =>
-        db.ReportingPreparations.Where(x => x.SubscriberId == subscriber && x.CompanyId == company);
+        db.ReportingPreparations.Where(x => x.SubscriberId == subscriber && x.CompanyId == company && x.SchemaVersion == "embm-preparation-v1");
 
     private static IQueryable<FiscalDocument> Documents(EfiscalDbContext db, Guid subscriber, Guid company) =>
         db.FiscalDocuments.AsNoTracking().Where(x => x.SubscriberId == subscriber && x.CompanyId == company &&

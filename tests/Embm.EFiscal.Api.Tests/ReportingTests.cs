@@ -71,7 +71,7 @@ public sealed partial class IdentityTenantTests
         await Expect(Mutate(owner, target + "/simulate", new { }), HttpStatusCode.NotFound);
         await Db(async db =>
         {
-            var row = await db.ReportingPreparations.SingleAsync(x => x.DocumentId == id);
+            var row = await db.ReportingPreparations.SingleAsync(x => x.DocumentId == id && x.SchemaVersion == "embm-preparation-v1");
             Assert.Equal(Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(row.Content))), row.Sha256);
             Assert.Equal("AuthorizationRequired", (await db.DocumentProcessing.SingleAsync(x => x.DocumentId == id)).Regulator);
             Assert.Equal(1, await db.ReportingSimulations.CountAsync(x => x.PreparationId == row.Id));

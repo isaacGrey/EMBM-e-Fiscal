@@ -25,7 +25,8 @@ internal record TemplateStamp<T>(Guid? Id, int Version, string Name, T Content);
 internal record DocumentTemplates(TemplateStamp<PdfLayout>? Pdf, TemplateStamp<EmailTemplate>? Email);
 internal record DeliveryStamp(string? Recipient, int? SenderRevision, SenderProfile? Sender, string[] AuthorizedRecipients);
 internal record PartySnapshot(string Code, string Name, string? TradeName, string? Tin, string? Rdo, string? RegisteredAddress,
-    string? BillingAddress, string? ShippingAddress, string? Contact, string? Email, string? VatStatus, int? Revision = null);
+    string? BillingAddress, string? ShippingAddress, string? Contact, string? Email, string? VatStatus, int? Revision = null,
+    string? Classification = null);
 internal record DocumentParties(PartySnapshot Seller, PartySnapshot Customer, string BranchCode, string BranchName, string BranchAddress);
 internal record DocumentHeader(string? Remarks, string? AdjustmentReason, string? AdjustmentKind, DateOnly? RequestedDeliveryDate,
     string? ShippingAddress, string? Salesperson, string? PurchaseOrderReference, string? ExternalReference, string? WarehouseReference,
@@ -59,11 +60,14 @@ internal static class DocumentRules
     public static T Read<T>(JsonElement value) => value.Deserialize<T>(Json) ?? throw new InvalidOperationException("The committed snapshot is incomplete.");
 
     public static string Digest<T>(T value)
+        => Convert.ToHexString(SHA256.HashData(CanonicalBytes(value)));
+
+    internal static byte[] CanonicalBytes<T>(T value)
     {
         var json = Freeze(value);
         using var stream = new MemoryStream();
         using (var writer = new Utf8JsonWriter(stream)) WriteCanonical(writer, json);
-        return Convert.ToHexString(SHA256.HashData(stream.GetBuffer().AsSpan(0, (int)stream.Length)));
+        return stream.ToArray();
     }
 
     private static void WriteCanonical(Utf8JsonWriter writer, JsonElement value)

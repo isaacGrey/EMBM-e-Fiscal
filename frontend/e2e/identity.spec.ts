@@ -387,6 +387,13 @@ test.describe('PostgreSQL identity and onboarding', () => {
     await page.getByRole('button', { name: 'Save & Send', exact: true }).click()
     await page.getByRole('button', { name: 'Confirm Save & Send' }).click()
     await expect(page.getByRole('heading', { name: 'SI-000002', exact: true })).toBeVisible()
+    const structuredPath = company + '/documents/SalesInvoice/' + page.url().split('/').at(-1) + '/structured'
+    const structured = await page.request.get(structuredPath)
+    expect(structured.ok(), await structured.text()).toBeTruthy()
+    expect((await structured.json()).data.fiscalSnapshot.totals.total).toBe('112')
+    const canonicalJson = await page.request.get(structuredPath + '/download')
+    expect(canonicalJson.headers()['content-disposition']).toContain('attachment')
+    expect((await canonicalJson.json()).schemaVersion).toBe('embm-invoice-v1')
     expect(await balance()).toBe(starting - 3)
     await page.getByRole('link', { name: 'BIR Reporting Preparation', exact: true }).click()
     await expect(page.getByRole('heading', { name: 'BIR Reporting Preparation', level: 2 })).toBeVisible()

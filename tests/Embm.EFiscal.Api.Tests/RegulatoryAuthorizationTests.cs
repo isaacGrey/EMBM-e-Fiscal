@@ -72,9 +72,18 @@ public sealed partial class IdentityTenantTests
         Assert.Equal("Disabled", documented.GetProperty("issuance").GetString());
         Assert.Equal("Disabled", documented.GetProperty("transmission").GetString());
         Assert.Equal("InternalPreparationOnly", documented.GetProperty("preparation").GetString());
+        Assert.Equal(balance, await Balance(owner, f.Subscriber));
+        var request = Input(f, "SalesInvoice") with { Date = today };
+        var issued = await CommitDocument(owner, f, "SalesInvoice", request, await DocPreview(owner, f, "SalesInvoice", request));
+        var structuredPath = f.Path + "/SalesInvoice/" + issued.GetProperty("id").GetGuid() + "/structured";
+        var originalBytes = await owner.GetByteArrayAsync(structuredPath + "/download");
+        var canonical = await Json(owner, structuredPath);
+        var references = canonical.GetProperty("data").GetProperty("documentedAuthorizationReferences");
+        Assert.Equal("PermitToIssue", Assert.Single(references.EnumerateArray()).GetProperty("kind").GetString());
 
         await Act("Revoked", 2, HttpStatusCode.OK);
         Assert.Empty((await Json(owner, eligibility)).GetProperty("applicableAuthorizations").EnumerateArray());
+        Assert.Equal(originalBytes, await owner.GetByteArrayAsync(structuredPath + "/download"));
         await Expect(UploadAuthorization(owner, target + "/versions", input with { ExpectedVersion = 0 }), HttpStatusCode.Conflict);
         await Expect(UploadAuthorization(owner, target + "/versions", input with { ExpectedVersion = 1, Reference = "000124" }), HttpStatusCode.Created);
         await Act("ReviewAccepted", 3, HttpStatusCode.Conflict);
@@ -85,7 +94,7 @@ public sealed partial class IdentityTenantTests
             ExpiresOn = today.AddDays(-1) }), HttpStatusCode.Created);
         var expired = await Json(owner, eligibility);
         Assert.Equal("PermitToTransmit", Assert.Single(expired.GetProperty("expiredAuthorizations").EnumerateArray()).GetProperty("kind").GetString());
-        Assert.Equal(balance, await Balance(owner, f.Subscriber));
+        Assert.Equal(balance - 1, await Balance(owner, f.Subscriber));
         await Db(async db =>
         {
             var rejected = await Assert.ThrowsAsync<PostgresException>(() => db.Set<RegulatoryAuthorizationVersion>()

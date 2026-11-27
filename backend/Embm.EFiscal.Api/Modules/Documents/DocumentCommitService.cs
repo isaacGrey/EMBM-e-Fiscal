@@ -3,6 +3,7 @@ using Embm.EFiscal.Api.Infrastructure;
 using Embm.EFiscal.Api.Modules.Billing;
 using Embm.EFiscal.Api.Modules.Connect;
 using Embm.EFiscal.Api.Modules.CompanyConfiguration;
+using Embm.EFiscal.Api.Modules.Reporting;
 using Embm.EFiscal.Api.Modules.Tenants;
 using Microsoft.EntityFrameworkCore;
 using static Embm.EFiscal.Api.Modules.MasterData.MasterRegistry;
@@ -84,7 +85,10 @@ internal sealed class DocumentCommitService(EfiscalDbContext db, DocumentAssembl
         db.DocumentOutboxMessages.Add(accounting);
         await routing.Pin(doc, accounting, doc.Processing, true, ct);
         if (!SalesOrder(type))
+        {
+            await CanonicalInvoices.Capture(db, doc, ct);
             db.DocumentOutboxMessages.Add(Job(doc, "Render", "initial", now));
+        }
         if (reservation is not null)
             await credits.Complete(reservation, true, now, ct);
         db.Audit("Documents." + type + ".Committed", actor, subscriber, doc.Id);

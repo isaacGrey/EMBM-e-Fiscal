@@ -60,3 +60,7 @@ Owners and company administrators submit evidence. Only the account owner can as
 ### Provider evidence access
 
 Provider accreditation and taxpayer evidence have separate routes, grants and stores. Provider evidence is available only to explicitly authorized synthetic vendor sessions in Development. The vendor UI does not assert accreditation. Requirement source URLs are limited to BIR HTTPS domains for reference. The service makes no network requests to those URLs.
+
+### Structured invoice evidence
+
+Canonical invoice retrieval uses the same scoped view permissions as the committed document. It does not expose delivery recipients, email content, SMTP configuration or provider credentials. Legacy generation cannot fill historical data from current master data or current permit records. Hashes verify integrity of internal evidence and do not assert official validation.

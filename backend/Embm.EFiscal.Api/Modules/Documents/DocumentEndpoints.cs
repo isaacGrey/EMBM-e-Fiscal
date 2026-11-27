@@ -2,6 +2,7 @@ using System.Data;
 using Embm.EFiscal.Api.Infrastructure;
 using Embm.EFiscal.Api.Modules.Billing;
 using Embm.EFiscal.Api.Modules.MasterData;
+using Embm.EFiscal.Api.Modules.Reporting;
 using Embm.EFiscal.Api.Modules.Tenants;
 using Microsoft.EntityFrameworkCore;
 using static Embm.EFiscal.Api.Modules.Documents.DocumentRules;
@@ -28,6 +29,7 @@ internal static partial class DocumentEndpoints
         group.MapGet("/{type}/{id:guid}/source-lines", SourceLines);
         group.MapPost("/{type}/preview", Preview);
         group.MapPost("/{type}/commit", Commit);
+        CanonicalInvoices.MapCanonicalInvoices(group);
         MapDelivery(group, app.Environment.IsDevelopment());
     }
 

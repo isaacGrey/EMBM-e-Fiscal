@@ -151,3 +151,7 @@ Company routes are under /api/workspace/{subscriber}/companies/{company}/regulat
 ### Provider accreditation API
 
 Development-only routes under /api/vendor/accreditation require a vendor session and explicit view or edit grants. GET / lists versions by category and page. GET /{category}/{key} returns history. POST on that path creates a version from multipart metadata and optional evidence. GET /{category}/{key}/{number}/evidence downloads integrity-checked bytes. Version metadata records review identity and timestamps. A documented outside decision does not mark official accreditation verified. Requirements need a BIR HTTPS source reference, a regulatory section, a description and applicability. The application does not fetch or run uploaded content or source URLs.
+
+### Canonical invoice API
+
+GET /{type}/{id}/structured on the company documents API returns the verified internal envelope or available=false for a legacy document. GET /{type}/{id}/structured/download returns the exact hashed UTF-8 JSON bytes as an attachment. POST /{type}/{id}/structured/generate produces a legacy envelope once and returns the existing envelope on retry. All routes require the document-type view grant, company and subscriber scope. Sales Orders are excluded. Generation and retrieval do not call billing or the delivery workers. A mismatched digest returns 409.
