@@ -12,6 +12,8 @@ namespace Embm.EFiscal.Api.Infrastructure;
 
 public sealed class EfiscalDbContext(DbContextOptions<EfiscalDbContext> options) : DbContext(options)
 {
+    public DbSet<Modules.Reporting.ReportingPreparation> ReportingPreparations => Set<Modules.Reporting.ReportingPreparation>();
+    public DbSet<Modules.Reporting.ReportingSimulation> ReportingSimulations => Set<Modules.Reporting.ReportingSimulation>();
     public DbSet<User> Users => Set<User>();
     public DbSet<UserIdentity> UserIdentities => Set<UserIdentity>();
     public DbSet<Registration> Registrations => Set<Registration>();
@@ -101,6 +103,7 @@ public sealed class EfiscalDbContext(DbContextOptions<EfiscalDbContext> options)
 
     protected override void OnModelCreating(ModelBuilder b)
     {
+        Modules.Reporting.ReportingGateway.Configure(b);
         CompanyConfigurationModel.Configure(b);
         BillingModel.Configure(b);
         MasterModel.Configure(b);

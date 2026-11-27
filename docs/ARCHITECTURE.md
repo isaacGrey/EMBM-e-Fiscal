@@ -55,3 +55,9 @@ Development routing selects one enabled branch or company destination for a docu
 
 The API execution workspace builds requests from explicitly approved capabilities and reviewed operations. The Phase 8 transport runs in-process with zero outbound network access. Uploaded specifications never acquire execution permission on import. Vendor test results and monitoring contain synthetic or aggregate information. The mock provider retains separate observed store revisions for incremental retrieval and refund review.
 
+
+## Phase 10 / 10.1 reporting preparation
+
+Reporting is a separate module over immutable committed invoices and credit memos. An explicitly requested preparation copies the pinned fiscal evidence into an internal `embm-preparation-v1` envelope and stores its exact UTF-8 SHA-256 digest. It does not construct an official BIR payload. The preparation and optional local simulation are independent from document commitment, accounting, delivery and regulator status. No network transport, endpoint configuration, credentials or live-send switch exists.
+
+Company reads require Reports.View and company membership. Preparation and simulation also require Company.Manage, revalidated under the subscriber lock. Simulation is mapped only in Development and requires both subscriber and document fixture flags. Future official mapping and transport must be separately reviewed against published BIR specifications and authorization; neither is assumed by this preparation milestone.

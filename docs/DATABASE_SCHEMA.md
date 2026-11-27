@@ -78,3 +78,7 @@ Mapping, template, execution-policy, receipt and evidence records have database 
 
 Migration `20261127012025_SourceStatusHistoryAndResponsePins` adds scoped append-only store observations and optional pinned response-mapping references. Original source records remain immutable and retain their external identity. A higher provider revision controls subsequent eligibility and source limits. Response mappings share the existing revision relation. An absent response profile uses the fixed normalized development response contract.
 
+
+## Reporting preparation evidence
+
+Migration `20261127053018_ReportingPreparationGateway` adds ReportingPreparations and ReportingSimulations. Composite foreign keys bind preparation to the same subscriber/company fiscal document and simulation to the same scoped preparation. A unique document/schema key and subscriber row lock make preparation idempotent. A unique preparation simulation key makes local simulation idempotent. PostgreSQL triggers reject updates/deletes to either evidence table and reject preparation inserts for Sales Orders. Original documents and processing states are unchanged. Content is exact text rather than JSONB so its UTF-8 integrity digest is reproducible.

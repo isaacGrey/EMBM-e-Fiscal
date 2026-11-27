@@ -169,3 +169,39 @@ Both `20261127010801_MappingExecutionAndAccountingSync` and `20261127012025_Sour
 
 The next incomplete workflow is handing marketplace shipping and discounts into the invoice draft under approved financial rules. Provider-specific metadata and approved live provider transports remain open. Live issuance, live email, BIR transmission and operational Windows bridge functionality remain gated. Phase 6 statutory adjustment and Sales Order lifecycle limitations still apply. Phase 9 reconciliation remains pending.
 
+
+## Official checkout continuation — 27 November 2026
+
+Verified `D:\Projects\EMBM-eFiscal\EMBM-e-Fiscal` against `https://github.com/isaacGrey/EMBM-e-Fiscal.git`. The starting working tree was clean on main at e4e1ef004aeadc472e63d46d9825d03daf48ffc3 (Initial commit - EMBM e-Fiscal). Fetch confirmed zero commits ahead/behind origin/main. No commit or push was authorized or performed.
+
+### Verified baseline and documentation gap
+
+The transferred progress log ends at Phase 8. Its exact recorded incomplete increment is marketplace shipping/discount handoff under approved financial rules, with Phase 9 described as pending. The same repository already contains reconciliation coverage, evidence, endpoints, worker, screens and migration 20261127015051_ReconciliationCoverageAndEvidence. Their presence is not proof of full Phase 9 acceptance; the transferred checkout has no dedicated reconciliation acceptance tests or completed Phase 9 entry. Preserve this work. The owner's current instruction explicitly prioritizes Phase 10 and 10.1: BIR Regulatory Compliance and API-Ready Reporting Gateway.
+
+Prior limitations remain: approved marketplace financial treatment, statutory Credit Memo adjustments, additional Sales Order lifecycle controls, operational Windows bridge, real provider transport, production payments/email/issuance and formally authorized government access. Do not infer completion from these local continuation checks.
+
+### Phase 10 / 10.1 first preparation increment
+
+Implemented company-scoped reporting preparation over committed Sales Invoices and Credit Memos. Internal embm-preparation-v1 evidence copies immutable fiscal snapshots and exact decimal strings and preserves its UTF-8 SHA-256 digest. The workspace lists eligible documents, preparation evidence and independently labeled local simulation. Sales Orders are excluded at both API and database boundaries. Reads require Reports.View and authorized company membership; preparation and simulation additionally require Company.Manage under the subscriber row lock. Read-only users cannot mutate.
+
+Preparation is idempotent per document/schema and simulation is idempotent per preparation. Both records are protected against update/delete by PostgreSQL triggers. Simulation exists only in Development for synthetic subscribers and documents and confirms local evidence integrity only. Original invoice, PDF, delivery, accounting and regulator states remain unchanged. No reporting action changes the wallet. The government status remains NotSubmitted.
+
+The owner reports that BIR's forthcoming API is unavailable. No government specification, authentication, payload, endpoint, acknowledgment or transmission transport was invented. BIR login, production issuance and live transmission remain disabled. The internal envelope is not an official BIR payload. Future transport and official mappings require verified specifications and authorization.
+
+### Local environment and migration verification
+
+Node 24.20.0, npm 11.19.0, .NET SDK 10.0.402, restored dotnet-ef 10.0.15, PostgreSQL 15.8 and Graphify 0.9.120 are available. npm ci completed with zero reported vulnerabilities. Existing private operator configuration outside the repository identifies the loopback PostgreSQL cluster on 15432 and separate efiscal_development/efiscal_test databases. No secrets were copied into source control. The original migration baseline was already applied. Applied additive migration 20261127053018_ReportingPreparationGateway to development and test without deleting existing data; EF reports no pending model changes. Docker CLI is installed but its Linux daemon is unavailable; the current local PostgreSQL/outbox runtime does not require it. RabbitMQ delivery is not activated by this milestone.
+
+The API runs from this checkout at http://127.0.0.1:5108. Its health and Development OpenAPI contracts were verified. The frontend runs from this checkout at http://127.0.0.1:5174 because an unverified existing server occupies 5173. Browser tests use the fixed production preview on 4173. RDO fixture import was verified using an absolute path; README now resolves that path before dotnet run changes the working directory.
+
+### Remaining Phase 10 / 10.1 work
+
+This is the first preparation increment, not completed regulatory certification or full Phase 10 acceptance. Remaining internal work includes versioned company compliance review/authorization evidence, richer readiness validation with reviewed criteria, scoped preparation exports and operational review history. Official payload mapping, transport, delivery policy, government receipts and live testing remain blocked on actual BIR specifications and formal authorization. Nationwide/read-only regulator grants and their acceptance require their separately authorized phase. Continue from this preparation module while preserving the earlier recorded incomplete work.
+
+### Verification results
+
+The Release API build completed with zero warnings/errors and the frontend TypeScript/Vite production build passed. The final PostgreSQL API suite passed all 35 tests with zero skips. Reporting regression covers preparation and simulation replay, SHA-256 integrity, tenant isolation, authorized auditor reads with denied mutation, Sales Order exclusion, production simulation denial, absent transmission routes, immutable evidence, unchanged regulator state and zero additional wallet consumption. The existing connector test now asserts the already-implemented marketplace financial-review block and retains commitment coverage using the authorized accounting order; no financial guard was relaxed.
+
+The initial local API test invocation omitted ConnectionStrings__Efiscal and therefore omitted optional document workers at host construction, causing worker timeouts. Re-running with both connection variables set to the isolated test database resolved them. README records this setup. Initial parallel browser checks hit shared IP/CSRF limits and one check encountered changing preview assets; security limits were retained and final browser verification runs sequentially against fixed assets. Reporting had already passed on desktop, tablet and mobile. The final full-browser result is recorded below. Screenshots are local under frontend/TestResults/phase-10 and Graphify outputs remain ignored under graphify-out.
+
+Final browser verification passed all 36 Playwright tests in 5.4 minutes with one worker and zero skips, covering desktop, tablet and mobile. The reporting extension verifies preparation, local simulation, Sales Order exclusion, unchanged credit balance, no page/API errors and no horizontal page overflow. Inspected final reporting screenshots on all three layouts. The complete final API run passed all 35 tests in 2 minutes 4 seconds. Both development services remain running from the official checkout (frontend 5174, API 5108); the test-only preview on 4173 exited normally. Graphify was refreshed after structural changes: 3,395 nodes, 11,826 edges and 133 communities, with local AST extraction and no model API cost. git diff --check passes. main still points to e4e1ef0 with zero commits ahead/behind origin/main; all continuation changes remain uncommitted and unpushed.

@@ -153,13 +153,17 @@ public sealed partial class IdentityTenantTests
         Assert.Empty((await Json(owner, f.Path + "/SalesInvoice/register")).GetProperty("items").EnumerateArray());
         var input = Input(f, "SalesInvoice") with { ExternalOrderKey = shopKey,
             Lines = [new(f.Item, f.Unit, "5", null, null, null, null, ExternalLineKey: "001")] };
+        await Expect(Mutate(owner, f.Path + "/SalesInvoice/preview", input), HttpStatusCode.BadRequest);
+        await Expect(Mutate(owner, f.Path + "/SalesInvoice/commit", Operation(input, await DocPreview(owner, f, "SalesInvoice", Input(f, "SalesInvoice")))), HttpStatusCode.BadRequest);
+        // Marketplace financial adjustments remain blocked; use the authorized accounting order for commitment coverage.
+        input = input with { ExternalOrderKey = sourceKey };
         var confirmed = await DocPreview(owner, f, "SalesInvoice", input);
         Assert.Equal(before, await Balance(owner, f.Subscriber));
         var posted = await CommitDocument(owner, f, "SalesInvoice", input, confirmed);
         Assert.Equal(before - 1, await Balance(owner, f.Subscriber));
         await Expect(Mutate(owner, f.Path + "/SalesInvoice/commit", Operation(input, confirmed)), HttpStatusCode.BadRequest);
         var detail = await Json(owner, path + "/source-orders/" + eligible.GetProperty("id").GetGuid());
-        Assert.Equal(posted.GetProperty("id").GetGuid(), detail.GetProperty("relatedInvoices")[0].GetProperty("id").GetGuid());
+        Assert.Empty(detail.GetProperty("relatedInvoices").EnumerateArray());
 
         var company = await CreateCompany(owner, f.Subscriber, "CONNECT-OTHER");
         var otherPath = $"/api/workspace/{f.Subscriber}/companies/{company}/connect";

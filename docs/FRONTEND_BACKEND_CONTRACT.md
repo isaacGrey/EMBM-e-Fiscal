@@ -135,3 +135,9 @@ Vendor routes include `/api/vendor/connectors/mapping-templates` and `/runtime/o
 
 Store retrieval accepts an optional bounded `limit`, a prior `after` cursor and a `changedSince` timestamp. A synthetic refund refresh appends a status observation and reduces eligible source quantity while preserving the external identity. The invoice handoff uses customer and item identity mappings. Source shipping, discounts, refunds and taxes are visible for review. Applying those amounts to an invoice still requires the existing authorized financial workflow.
 
+
+## Phase 10 / 10.1 reporting preparation API
+
+Routes are relative to `/api/workspace/{subscriber}/companies/{company}/reporting`. GET `/` accepts a one-based `page` (25 documents per page) and returns eligible invoices/credit memos, preparation/simulation indicators and server-derived actions. Mode is PreparationOnly; liveTransmissionEnabled and officialApiAvailable are false. GET `/{document}` returns authorized internal evidence, its schema version, SHA-256 and optional simulation. All government statuses remain NotSubmitted.
+
+POST `/{document}/prepare` copies immutable committed evidence once; retries return the same preparation. POST `/{document}/simulate` is Development-only, requires an existing preparation and synthetic subscriber/document, validates local integrity and records SimulationValidated once. It does not imply BIR validation or acceptance. Reads require Reports.View; mutations also require Company.Manage. Every route checks subscriber and company scope; mutations require CSRF and revalidate permissions under the subscriber lock. Sales Orders and unavailable resources return 404. Simulation before preparation returns 409. No transmit endpoint exists. All operations consume zero credits and leave document processing states unchanged.

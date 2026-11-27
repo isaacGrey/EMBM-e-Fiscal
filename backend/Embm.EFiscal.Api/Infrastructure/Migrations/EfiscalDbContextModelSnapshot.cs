@@ -1802,7 +1802,7 @@ namespace Embm.EFiscal.Api.Infrastructure.Migrations
 
                     b.ToTable("DocumentAllocations", t =>
                         {
-                            t.HasCheckConstraint("CK_DocumentAllocation_Source", "(\"SourceLineId\" IS NOT NULL AND \"ExternalOrderKey\" IS NULL AND \"ExternalLineKey\" IS NULL) OR\n(\"SourceLineId\" IS NULL AND \"ExternalOrderKey\" IS NOT NULL AND \"ExternalLineKey\" IS NOT NULL)");
+                            t.HasCheckConstraint("CK_DocumentAllocation_Source", "(\"SourceLineId\" IS NOT NULL AND \"ExternalOrderKey\" IS NULL AND \"ExternalLineKey\" IS NULL) OR\r\n(\"SourceLineId\" IS NULL AND \"ExternalOrderKey\" IS NOT NULL AND \"ExternalLineKey\" IS NOT NULL)");
                         });
                 });
 
@@ -2192,9 +2192,9 @@ namespace Embm.EFiscal.Api.Infrastructure.Migrations
 
                     b.ToTable("FiscalDocuments", t =>
                         {
-                            t.HasCheckConstraint("CK_Documents_Action", "(\"Type\" = 'SalesOrder' AND \"Credits\" = 0 AND \"SourceDocumentId\" IS NULL AND \"ExternalOrderKey\" IS NULL) OR\n(\"Type\" = 'SalesInvoice' AND \"Credits\" = 1 AND (\"SourceDocumentId\" IS NULL OR \"ExternalOrderKey\" IS NULL)) OR\n(\"Type\" = 'CreditMemo' AND \"Credits\" = 1 AND \"SourceDocumentId\" IS NOT NULL AND \"ExternalOrderKey\" IS NULL)");
+                            t.HasCheckConstraint("CK_Documents_Action", "(\"Type\" = 'SalesOrder' AND \"Credits\" = 0 AND \"SourceDocumentId\" IS NULL AND \"ExternalOrderKey\" IS NULL) OR\r\n(\"Type\" = 'SalesInvoice' AND \"Credits\" = 1 AND (\"SourceDocumentId\" IS NULL OR \"ExternalOrderKey\" IS NULL)) OR\r\n(\"Type\" = 'CreditMemo' AND \"Credits\" = 1 AND \"SourceDocumentId\" IS NOT NULL AND \"ExternalOrderKey\" IS NULL)");
 
-                            t.HasCheckConstraint("CK_Documents_Amounts", "\"LineCount\" BETWEEN 1 AND 100 AND \"Precision\" BETWEEN 0 AND 6 AND \"ExchangeRate\" > 0\nAND \"Total\" >= 0 AND \"AmountDue\" = \"Total\" - \"IncomeWithholding\" - \"VatWithholding\"\nAND \"AmountDue\" >= 0");
+                            t.HasCheckConstraint("CK_Documents_Amounts", "\"LineCount\" BETWEEN 1 AND 100 AND \"Precision\" BETWEEN 0 AND 6 AND \"ExchangeRate\" > 0\r\nAND \"Total\" >= 0 AND \"AmountDue\" = \"Total\" - \"IncomeWithholding\" - \"VatWithholding\"\r\nAND \"AmountDue\" >= 0");
                         });
                 });
 
@@ -2304,7 +2304,7 @@ namespace Embm.EFiscal.Api.Infrastructure.Migrations
 
                     b.ToTable("FiscalDocumentLines", t =>
                         {
-                            t.HasCheckConstraint("CK_DocumentLines_Amounts", "\"Position\" BETWEEN 1 AND 100 AND \"Quantity\" >= 0 AND \"BaseFactor\" > 0\nAND \"Total\" = \"VatableSales\" + \"ExemptSales\" + \"ZeroRatedSales\" + \"NonVatSales\" + \"Vat\" AND \"Total\" >= 0");
+                            t.HasCheckConstraint("CK_DocumentLines_Amounts", "\"Position\" BETWEEN 1 AND 100 AND \"Quantity\" >= 0 AND \"BaseFactor\" > 0\r\nAND \"Total\" = \"VatableSales\" + \"ExemptSales\" + \"ZeroRatedSales\" + \"NonVatSales\" + \"Vat\" AND \"Total\" >= 0");
                         });
                 });
 
@@ -3346,6 +3346,86 @@ namespace Embm.EFiscal.Api.Infrastructure.Migrations
                     b.HasIndex("SubscriberId", "CompanyId", "VerificationId");
 
                     b.ToTable("ReconciliationReviews");
+                });
+
+            modelBuilder.Entity("Embm.EFiscal.Api.Modules.Reporting.ReportingPreparation", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("ActorId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("CompanyId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Content")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("DocumentId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("SchemaVersion")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)");
+
+                    b.Property<string>("Sha256")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<Guid>("SubscriberId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("SubscriberId", "CompanyId", "DocumentId", "SchemaVersion")
+                        .IsUnique();
+
+                    b.ToTable("ReportingPreparations");
+                });
+
+            modelBuilder.Entity("Embm.EFiscal.Api.Modules.Reporting.ReportingSimulation", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("ActorId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("CompanyId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Outcome")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)");
+
+                    b.Property<Guid>("PreparationId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("SubscriberId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("SubscriberId", "CompanyId", "PreparationId")
+                        .IsUnique();
+
+                    b.ToTable("ReportingSimulations", t =>
+                        {
+                            t.HasCheckConstraint("CK_ReportingSimulation_Outcome", "\"Outcome\" = 'SimulationValidated'");
+                        });
                 });
 
             modelBuilder.Entity("Embm.EFiscal.Api.Modules.Tenants.Branch", b =>
@@ -5657,6 +5737,26 @@ namespace Embm.EFiscal.Api.Infrastructure.Migrations
                         .HasForeignKey("SubscriberId", "CompanyId", "VerificationId")
                         .HasPrincipalKey("SubscriberId", "CompanyId", "Id")
                         .OnDelete(DeleteBehavior.Restrict);
+                });
+
+            modelBuilder.Entity("Embm.EFiscal.Api.Modules.Reporting.ReportingPreparation", b =>
+                {
+                    b.HasOne("Embm.EFiscal.Api.Modules.Documents.FiscalDocument", null)
+                        .WithMany()
+                        .HasForeignKey("SubscriberId", "CompanyId", "DocumentId")
+                        .HasPrincipalKey("SubscriberId", "CompanyId", "Id")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Embm.EFiscal.Api.Modules.Reporting.ReportingSimulation", b =>
+                {
+                    b.HasOne("Embm.EFiscal.Api.Modules.Reporting.ReportingPreparation", null)
+                        .WithMany()
+                        .HasForeignKey("SubscriberId", "CompanyId", "PreparationId")
+                        .HasPrincipalKey("SubscriberId", "CompanyId", "Id")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
                 });
 
             modelBuilder.Entity("Embm.EFiscal.Api.Modules.Tenants.Branch", b =>

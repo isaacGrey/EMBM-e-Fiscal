@@ -21,6 +21,11 @@
 .wizard-progress li[aria-current] span { background: var(--action); color: white; }
 .workspace-table { font-size: 13px; }
 .workspace-table td, .workspace-table th { padding: 9px; border-bottom: 1px solid var(--color-line); }
+.reporting-pagination { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; }
+.reporting-evidence { display: grid; gap: 8px; min-width: 0; }
+.reporting-evidence p { overflow-wrap: anywhere; }
+.reporting-evidence summary { cursor: pointer; color: var(--action); font-weight: 650; }
+.reporting-evidence pre { white-space: pre-wrap; overflow-wrap: anywhere; max-height: 24rem; overflow: auto; padding: 12px; background: var(--color-porcelain); font-size: 12px; }
 .grants-grid { display: flex; flex-wrap: wrap; gap: 6px; padding-block: 8px; }
 .grants-grid li { background: var(--color-porcelain); padding: 4px 7px; border-radius: 5px; font-size: 12px; }
 .company-checks { display: grid; gap: 5px; }

@@ -104,6 +104,12 @@ Phase 7 covers the registry, administrative Builder and specification import, ca
 
 Only formally authorized reporting and read-only BIR access are in scope. Nationwide BIR access requires formal authorization. Authorized users can filter by registered RDO within their grants. Client and Vendor Super Admin login pages have no RDO field. BIR login can request RDO context without granting permissions. Live BIR transmission remains disabled pending formal authorization. Electronic invoice reporting must use officially supported methods and stay within formal authorization. Never invent government API endpoints or claim BIR accreditation, certification, or direct government connectivity without official verification.
 
+## Phase 10 and 10.1 reporting preparation boundary
+
+The approved scope is BIR Regulatory Compliance and an API-ready Reporting Gateway. The project owner reports that BIR's upcoming transmission API is not available. Keep preparation mode and development simulation available without inventing an official payload, authentication method, endpoint, receipt, or deadline. Internal evidence is explicitly versioned as an EMBM preparation envelope and never represented as a government submission or acceptance. Future integration requires official specifications, verified authorization, reviewed mapping versions and a separately approved transport.
+
+Preparation copies committed Sales Invoice and Credit Memo evidence without changing the fiscal record, original file, wallet, delivery or accounting status. Sales Orders are excluded. Preparation evidence and simulation results are immutable, company scoped and audited. Read-only roles cannot prepare or simulate. Simulation is restricted to synthetic subscribers and documents in Development. All reporting operations use zero Save & Send Credits. Production issuance, BIR sign-in and live government transmission remain disabled.
+
 ## Approved implementation stack
 
 React, TypeScript, Vite, Tailwind CSS, shadcn/ui, Lucide, React Router, TanStack Query and Table, React Hook Form, Zod, and Recharts. ASP.NET Core, C#, EF Core, PostgreSQL, OpenAPI, RabbitMQ, a transactional outbox, and worker services. Modular monolith, REST, Docker-compatible infrastructure, secure authentication and authorization, and tenant-isolated financial records.

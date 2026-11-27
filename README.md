@@ -16,7 +16,7 @@ $env:ConnectionStrings__Efiscal = 'Host=127.0.0.1;Port=15432;Database=efiscal_de
 $env:Identity__DevelopmentMailbox = Join-Path $env:LOCALAPPDATA 'EMBM-eFiscal/identity-mail'
 dotnet tool restore
 dotnet ef database update --project backend/Embm.EFiscal.Api --configuration Release
-dotnet run --project backend/Embm.EFiscal.Api --configuration Release -- --import-rdos infrastructure/dev-rdos.json
+dotnet run --project backend/Embm.EFiscal.Api --configuration Release -- --import-rdos (Resolve-Path infrastructure/dev-rdos.json).Path
 ```
 
 The RDO import supplies fictional local references for onboarding. It is optional for registration. Use a verified official export and source provenance before production use. Review generated migration SQL before applying changes to a persistent environment. [EF Core migration guidance](https://learn.microsoft.com/en-us/ef/core/managing-schemas/migrations/applying?tabs=vs)
@@ -56,3 +56,11 @@ The Connector Builder browser test uses a bootstrapped local vendor account. Set
 For development synchronization, use a company binding to Development Accounting v2. Create an outbound field mapping, activate its version, and choose it under Synchronization Center for the required document type and branch. The permanent viewer displays confirmed mock identities and attempt history. The vendor workspace exposes published mapping templates, the isolated API sandbox and aggregate monitoring.
 
 See [the master requirements](MASTER_SPEC.md), [progress](PROJECT_PROGRESS.md), and [the API contract](docs/FRONTEND_BACKEND_CONTRACT.md).
+
+## Local continuation on the official checkout
+
+The official local directory is `D:\Projects\EMBM-eFiscal\EMBM-e-Fiscal`. Use this checkout for all commands. An unrelated or unverified server may already occupy 5173; explicitly start this frontend with `npm.cmd run dev -- --port 5174` in that case. Its API proxy still targets 5108. Do not stop an unknown process to free a port.
+
+For PostgreSQL tests, set both `EFISCAL_TEST_DB` and `ConnectionStrings__Efiscal` to the same dedicated loopback `efiscal_test` connection in the test process. This ensures optional database workers are registered during host construction, before fixture configuration overrides. Keep development and test database connections distinct. Run the full browser suite sequentially (`npm.cmd run test:e2e -- --workers=1`) against a fixed build to avoid exhausting shared loopback rate limits. Do not rebuild preview assets while browser tests are running.
+
+The company workspace now includes BIR Reporting Preparation. Authorized administrators can prepare internal evidence for committed invoices/credit memos and validate its integrity with a Development-only synthetic simulation. This is not an official BIR payload, submission or acceptance. Preparation and simulation consume no credits. The forthcoming BIR API, production issuance and live government transmission remain unavailable.
