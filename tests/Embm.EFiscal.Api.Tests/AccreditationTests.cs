@@ -9,6 +9,36 @@ namespace Embm.EFiscal.Api.Tests;
 public sealed partial class IdentityTenantTests
 {
     [PostgresFact]
+    public async Task SchemaRegistrySeparatesInternalSimulationAndUnverifiedOfficialProfiles()
+    {
+        const string path = "/api/vendor/regulatory-schemas";
+        using var reader = await ConnectorVendor(VendorAccreditation.View);
+        using var denied = await ConnectorVendor();
+        await Expect(denied.GetAsync(path), HttpStatusCode.Forbidden);
+        var result = await Json(reader, path);
+        Assert.False(result.GetProperty("officialValidationAvailable").GetBoolean());
+        Assert.Equal(2, result.GetProperty("reserved").GetArrayLength());
+        var versions = result.GetProperty("versions").EnumerateArray().ToArray();
+        Assert.Contains(versions, x => x.GetProperty("version").GetString() == CanonicalInvoices.Version &&
+            x.GetProperty("classification").GetString() == "InternalCanonical");
+        Assert.Contains(versions, x => x.GetProperty("version").GetString() == RegulatorySchemas.SimulationVersion &&
+            x.GetProperty("environment").GetString() == "Development");
+        await Db(async db =>
+        {
+            var schema = await db.Set<RegulatorySchemaVersion>().AsNoTracking().SingleAsync(x => x.Version == CanonicalInvoices.Version);
+            Assert.True(StructuredInvoiceValidation.SchemaCompatible(schema, "CreditMemo"));
+            Assert.False(StructuredInvoiceValidation.SchemaCompatible(schema, "SalesOrder"));
+            schema.Classification = "FutureOfficialCertification";
+            schema.Environment = "Disabled";
+            schema.Verification = "Unverified";
+            Assert.False(StructuredInvoiceValidation.SchemaCompatible(schema, "SalesInvoice"));
+            var rejected = await Assert.ThrowsAsync<PostgresException>(() => db.Set<RegulatorySchemaVersion>()
+                .Where(x => x.Version == CanonicalInvoices.Version).ExecuteDeleteAsync());
+            Assert.Equal("P0001", rejected.SqlState);
+        });
+    }
+
+    [PostgresFact]
     public async Task ProviderAccreditationRegistryIsPrivateVersionedAndCannotGrantOfficialStatus()
     {
         const string path = "/api/vendor/accreditation";

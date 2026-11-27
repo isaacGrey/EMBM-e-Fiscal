@@ -64,3 +64,7 @@ Provider accreditation and taxpayer evidence have separate routes, grants and st
 ### Structured invoice evidence
 
 Canonical invoice retrieval uses the same scoped view permissions as the committed document. It does not expose delivery recipients, email content, SMTP configuration or provider credentials. Legacy generation cannot fill historical data from current master data or current permit records. Hashes verify integrity of internal evidence and do not assert official validation.
+
+### Schema activation boundary
+
+The schema registry does not accept uploaded schemas or run schema-supplied code. The deployed internal validation profile is the only profile eligible for canonical checks. An unverified or checksum-invalid registry record cannot turn on official validation, issuance or transmission.

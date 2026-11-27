@@ -155,3 +155,7 @@ Development-only routes under /api/vendor/accreditation require a vendor session
 ### Canonical invoice API
 
 GET /{type}/{id}/structured on the company documents API returns the verified internal envelope or available=false for a legacy document. GET /{type}/{id}/structured/download returns the exact hashed UTF-8 JSON bytes as an attachment. POST /{type}/{id}/structured/generate produces a legacy envelope once and returns the existing envelope on retry. All routes require the document-type view grant, company and subscriber scope. Sales Orders are excluded. Generation and retrieval do not call billing or the delivery workers. A mismatched digest returns 409.
+
+### Structured invoice validation and schema registry
+
+The structured invoice response includes internalSchema, issues, schemaChecksum, regulatoryEvidence and officialSchema under validation. officialValidation remains NotPerformed. The download endpoint verifies both hashes and returns the exact stored bytes. GET /api/vendor/regulatory-schemas is Development-only and requires the Accreditation.View grant. It returns verified registry checksums and the reserved official classifications. The permanent document viewer exposes the internal summary, JSON, validation results and legacy generation.

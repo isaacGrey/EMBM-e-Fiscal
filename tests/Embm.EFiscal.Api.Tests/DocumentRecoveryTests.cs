@@ -25,12 +25,20 @@ public sealed partial class IdentityTenantTests
         var source = issued.GetProperty("id").GetGuid();
         var invoiceStructuredPath = f.Path + "/SalesInvoice/" + source + "/structured";
         var structured = await Json(owner, invoiceStructuredPath);
+        Assert.Equal("Valid", structured.GetProperty("validation").GetProperty("internalSchema").GetString());
+        Assert.Equal("NotPerformed", structured.GetProperty("officialValidation").GetString());
         var invoiceData = structured.GetProperty("data").GetProperty("fiscalSnapshot");
         Assert.Equal("224", invoiceData.GetProperty("totals").GetProperty("total").GetString());
         Assert.Equal("001", invoiceData.GetProperty("seller").GetProperty("rdo").GetString());
         Assert.Equal("Corporate", invoiceData.GetProperty("buyer").GetProperty("classification").GetString());
         var structuredBytes = await owner.GetByteArrayAsync(invoiceStructuredPath + "/download");
         Assert.Equal(structured.GetProperty("sha256").GetString(), Convert.ToHexString(SHA256.HashData(structuredBytes)));
+        var tampered = System.Text.Json.Nodes.JsonNode.Parse(structuredBytes)!;
+        tampered["fiscalSnapshot"]!["totals"]!["total"] = "224.000000001";
+        var tamperedBytes = System.Text.Encoding.UTF8.GetBytes(tampered.ToJsonString());
+        Assert.False(Modules.Reporting.StructuredInvoiceValidation.HasDigest(tamperedBytes, structured.GetProperty("sha256").GetString()!));
+        using var invalid = System.Text.Json.JsonDocument.Parse(tamperedBytes);
+        Assert.NotEmpty(Modules.Reporting.StructuredInvoiceValidation.Issues(invalid.RootElement, source, "SalesInvoice", "SI-000001"));
         var sourceLines = await Json(owner, f.Path + "/SalesInvoice/" + source + "/source-lines");
         var original = sourceLines.GetProperty("lines")[0].GetProperty("id").GetGuid();
         await Expect(Mutate(owner, MasterPath(f.Subscriber, f.Company) + "/customers/" + f.Customer, new
@@ -48,6 +56,7 @@ public sealed partial class IdentityTenantTests
         Assert.Equal("CM-000001", memo.GetProperty("number").GetString());
         var memoPath = f.Path + "/CreditMemo/" + memo.GetProperty("id").GetGuid();
         var memoStructured = await Json(owner, memoPath + "/structured");
+        Assert.Equal("Valid", memoStructured.GetProperty("validation").GetProperty("internalSchema").GetString());
         var memoData = memoStructured.GetProperty("data").GetProperty("fiscalSnapshot");
         Assert.Equal(source, memoData.GetProperty("document").GetProperty("originalInvoiceId").GetGuid());
         Assert.Equal("Original buyer", memoData.GetProperty("buyer").GetProperty("name").GetString());

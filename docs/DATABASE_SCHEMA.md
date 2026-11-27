@@ -90,3 +90,7 @@ Migration 20261127061232 adds RegulatoryAuthorizations, RegulatoryAuthorizationV
 ### Provider accreditation storage
 
 Migration 20261127062039 adds AccreditationVersions and AccreditationFiles. The category, record key and version number identify append-only records and their optional evidence. PostgreSQL rejects edits and deletes. Optimistic expected versions and unique keys reject concurrent overwrites. The two dedicated accreditation grants are assigned to existing synthetic vendor publishers and new local vendor administrators.
+
+### Schema storage
+
+Migration 20261127063356 adds RegulatorySchemaVersions and seeds the internal canonical invoice and Development simulation profiles. Each row pins its classification, environment, fiscal document scope, content, SHA-256 checksum and effective dates. PostgreSQL makes versions append-only and only permits disabled, unverified entries in the reserved official classifications. New supported versions require a reviewed application change and additive migration.

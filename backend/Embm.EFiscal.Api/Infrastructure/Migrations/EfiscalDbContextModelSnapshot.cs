@@ -3587,6 +3587,93 @@ namespace Embm.EFiscal.Api.Infrastructure.Migrations
                         });
                 });
 
+            modelBuilder.Entity("Embm.EFiscal.Api.Modules.Reporting.RegulatorySchemaVersion", b =>
+                {
+                    b.Property<string>("Version")
+                        .HasMaxLength(80)
+                        .HasColumnType("character varying(80)");
+
+                    b.Property<string>("Classification")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("Content")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.PrimitiveCollection<string[]>("DocumentTypes")
+                        .IsRequired()
+                        .HasColumnType("text[]");
+
+                    b.Property<DateOnly>("EffectiveFrom")
+                        .HasColumnType("date");
+
+                    b.Property<DateOnly?>("EffectiveUntil")
+                        .HasColumnType("date");
+
+                    b.Property<string>("Environment")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<Guid?>("Reviewer")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Sha256")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("Source")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("Verification")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.HasKey("Version");
+
+                    b.ToTable("RegulatorySchemaVersions", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_RegulatorySchema_Classification", "\"Classification\" IN ('InternalCanonical','DevelopmentSimulation','FutureOfficialCertification','FutureOfficialProduction')");
+
+                            t.HasCheckConstraint("CK_RegulatorySchema_Integrity", "length(\"Sha256\") = 64 AND (\"EffectiveUntil\" IS NULL OR \"EffectiveUntil\" > \"EffectiveFrom\")");
+
+                            t.HasCheckConstraint("CK_RegulatorySchema_Use", "(\"Classification\" = 'InternalCanonical' AND \"Environment\" = 'Internal' AND \"Verification\" = 'InternalOnly') OR\n(\"Classification\" = 'DevelopmentSimulation' AND \"Environment\" = 'Development' AND \"Verification\" = 'InternalOnly') OR\n(\"Classification\" IN ('FutureOfficialCertification','FutureOfficialProduction') AND \"Environment\" = 'Disabled' AND \"Verification\" = 'Unverified')");
+                        });
+
+                    b.HasData(
+                        new
+                        {
+                            Version = "embm-invoice-v1",
+                            Classification = "InternalCanonical",
+                            Content = "{\"properties\":{\"documentedAuthorizationReferences\":{\"type\":[\"array\",\"null\"]},\"evidenceLimitations\":{\"items\":{\"type\":\"string\"},\"type\":\"array\"},\"fiscalSnapshot\":{\"properties\":{\"buyer\":{\"required\":[\"customerId\",\"name\",\"tin\",\"classification\"],\"type\":\"object\"},\"document\":{\"properties\":{\"type\":{\"enum\":[\"SalesInvoice\",\"CreditMemo\"]}},\"required\":[\"id\",\"number\",\"type\",\"date\",\"committedAt\",\"currency\",\"exchangeRate\",\"precision\",\"seriesId\",\"numbering\",\"originalInvoiceId\"],\"type\":\"object\"},\"lines\":{\"items\":{\"required\":[\"id\",\"position\",\"itemId\",\"unitId\",\"quantity\",\"unitPrice\",\"total\",\"taxClassification\",\"financialTerms\"],\"type\":\"object\"},\"minItems\":1,\"type\":\"array\"},\"seller\":{\"required\":[\"companyId\",\"branchId\",\"name\",\"branchCode\",\"tin\",\"rdo\"],\"type\":\"object\"},\"totals\":{\"required\":[\"grossSales\",\"commercialDiscount\",\"statutoryDiscount\",\"vatableSales\",\"vatExemptSales\",\"zeroRatedSales\",\"nonVatSales\",\"vat\",\"incomeWithholding\",\"vatWithholding\",\"total\",\"amountDue\",\"rounding\"],\"type\":\"object\"}},\"required\":[\"document\",\"seller\",\"buyer\",\"lines\",\"totals\"],\"type\":\"object\"},\"format\":{\"const\":\"InternalCanonical\"},\"originalFinancialSnapshotSha256\":{\"pattern\":\"^[A-F0-9]{64}$\",\"type\":\"string\"},\"schemaVersion\":{\"const\":\"embm-invoice-v1\"}},\"required\":[\"schemaVersion\",\"format\",\"fiscalSnapshot\",\"originalFinancialSnapshotSha256\",\"documentedAuthorizationReferences\",\"evidenceLimitations\"],\"type\":\"object\"}",
+                            DocumentTypes = new[] { "SalesInvoice", "CreditMemo" },
+                            EffectiveFrom = new DateOnly(2026, 11, 27),
+                            Environment = "Internal",
+                            Name = "EMBM eFiscal canonical invoice",
+                            Sha256 = "B445F1ACBB90D4961FB61BCE74C61D633CC7EBB9F635AA08DABAC3FAEFF0BBDC",
+                            Source = "EMBM eFiscal software release",
+                            Verification = "InternalOnly"
+                        },
+                        new
+                        {
+                            Version = "embm-reporting-simulation-v1",
+                            Classification = "DevelopmentSimulation",
+                            Content = "{\"properties\":{\"governmentStatus\":{\"const\":\"NotSubmitted\"},\"id\":{\"format\":\"uuid\",\"type\":\"string\"},\"outcome\":{\"const\":\"SimulationValidated\"}},\"required\":[\"id\",\"outcome\",\"governmentStatus\"],\"type\":\"object\"}",
+                            DocumentTypes = new[] { "SalesInvoice", "CreditMemo" },
+                            EffectiveFrom = new DateOnly(2026, 11, 27),
+                            Environment = "Development",
+                            Name = "EMBM eFiscal local reporting integrity simulation",
+                            Sha256 = "3CA1A439EB95ADFD46571F753C1ADBC2AFF92AAF1660AA38A71CA380E790D00D",
+                            Source = "EMBM eFiscal software release",
+                            Verification = "InternalOnly"
+                        });
+                });
+
             modelBuilder.Entity("Embm.EFiscal.Api.Modules.Reporting.ReportingPreparation", b =>
                 {
                     b.Property<Guid>("Id")

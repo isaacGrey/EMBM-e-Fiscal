@@ -127,7 +127,7 @@ internal static class CanonicalInvoices
         if (row is null) return download ? TenantAccess.Missing() : Results.Ok(new { available = false, notice = Notice });
 
         var bytes = Encoding.UTF8.GetBytes(row.Content);
-        if (Convert.ToHexString(SHA256.HashData(bytes)) != row.Sha256)
+        if (!StructuredInvoiceValidation.HasDigest(bytes, row.Sha256))
             return ApiSupport.Problem(409, "Structured invoice integrity check failed.");
         using var parsed = JsonDocument.Parse(bytes);
         var documentHash = parsed.RootElement.GetProperty("originalFinancialSnapshotSha256").GetString();
@@ -138,10 +138,20 @@ internal static class CanonicalInvoices
             http.Response.Headers.XContentTypeOptions = "nosniff";
             return Results.File(bytes, "application/json", document.Number + ".json");
         }
+        var schema = await db.Set<RegulatorySchemaVersion>().AsNoTracking().SingleOrDefaultAsync(x => x.Version == row.SchemaVersion, ct);
+        var schemaCompatible = StructuredInvoiceValidation.SchemaCompatible(schema, type);
+        var issues = StructuredInvoiceValidation.Issues(parsed.RootElement, id, type, document.Number);
+        if (!schemaCompatible) issues = [.. issues, "The matching internal schema is missing or failed its checksum."];
+        var limitations = parsed.RootElement.GetProperty("evidenceLimitations").GetArrayLength();
         return Results.Ok(new
         {
             available = true, notice = Notice, schemaVersion = row.SchemaVersion, generatedAt = row.CreatedAt,
-            row.Sha256, integrityVerified = true, officialValidation = "NotPerformed", data = parsed.RootElement.Clone()
+            row.Sha256, integrityVerified = true, officialValidation = "NotPerformed", data = parsed.RootElement.Clone(),
+            validation = new
+            {
+                internalSchema = issues.Length == 0 ? "Valid" : "Invalid", issues, schemaChecksum = schemaCompatible ? schema!.Sha256 : null,
+                regulatoryEvidence = limitations == 0 ? "Captured" : "Incomplete", officialSchema = "NotAvailable"
+            }
         });
     }
 

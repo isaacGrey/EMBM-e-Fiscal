@@ -144,6 +144,7 @@ app.MapDocuments();
 app.MapReporting();
 app.MapRegulatoryAuthorizations();
 app.MapVendorAccreditation();
+app.MapRegulatorySchemas();
 app.MapVendorConnect();
 app.MapClientConnect();
 app.MapFallback("/{**path}", () => Results.NotFound()).AllowAnonymous();

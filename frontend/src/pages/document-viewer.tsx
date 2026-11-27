@@ -94,6 +94,7 @@ export function DocumentViewer({ base, type, id, options }: { base: string; type
           <pre className="doc-preview-mails">{JSON.stringify(line.terms, null, 2)}</pre></details>)}
       </details>
     </Card>
+    {type !== 'SalesOrder' && <StructuredInvoicePanel key={path} path={path + '/structured'} />}
     {doc.developmentFixture && <SyncJobPanel base={base.replace(/\/documents$/, '/connect')} id={doc.id} />}
     {doc.developmentFixture && <DocumentReconciliationPanel base={base.replace(/\/documents$/, '/connect/reconciliation')} id={doc.id} />}
     {!!result.related.length && <Card className="workspace-card doc-panel"><h3>Related documents</h3>
@@ -133,5 +134,103 @@ export function DocumentViewer({ base, type, id, options }: { base: string; type
       </Table></div>
     </Card>
   </div>
+}
+
+type StructuredInvoice = {
+  available: boolean
+  notice: string
+  schemaVersion?: string
+  generatedAt?: string
+  sha256?: string
+  validation?: { internalSchema: 'Valid' | 'Invalid'; regulatoryEvidence: 'Captured' | 'Incomplete'; issues: string[] }
+  data?: {
+    originalFinancialSnapshotSha256: string
+    fiscalSnapshot: {
+      document: { currency: string; number: string; sourceNumber?: string | null; originalInvoiceId?: string | null }
+      seller: { name: string; tradeName?: string | null; tin?: string | null; rdo?: string | null; vatStatus?: string | null
+        branchCode: string; branchName: string; registeredAddress?: string | null }
+      buyer: { name: string; tin?: string | null; classification?: string | null; registeredAddress?: string | null; billingAddress?: string | null }
+      lines: (DocumentLine & { taxClassification: string | null })[]
+      totals: Record<string, string>
+    }
+    documentedAuthorizationReferences: { id: string; kind: string; number: number; reference: string }[] | null
+    evidenceLimitations: string[]
+  }
+}
+
+function StructuredInvoicePanel({ path }: { path: string }) {
+  const [open, setOpen] = useState(false)
+  const [busy, setBusy] = useState(false)
+  const [message, setMessage] = useState('')
+  const [error, setError] = useState('')
+  const query = useQuery({ queryKey: ['structured-invoice', path], queryFn: () => api<StructuredInvoice>(path), enabled: open, retry: false })
+  const result = query.data
+  const evidence = result?.data
+  const snapshot = evidence?.fiscalSnapshot
+
+  async function generate() {
+    setBusy(true); setError('')
+    try {
+      await api(path + '/generate', 'POST')
+      await query.refetch()
+    } catch (failure) { setError(errorMessage(failure)) }
+    finally { setBusy(false) }
+  }
+
+  async function verify() {
+    setMessage('')
+    const recent = await query.refetch()
+    if (recent.data?.available && !recent.isError) setMessage('Both SHA-256 integrity checks passed.')
+  }
+
+  return <Card className="workspace-card doc-panel" aria-label="Structured electronic invoice">
+    <h3>Structured electronic invoice</h3>
+    <p>Internal structured electronic invoice — official BIR transmission format awaiting verified specifications.</p>
+    <Button variant="light" onClick={() => setOpen(value => !value)} aria-expanded={open}>{open ? 'Hide structured data' : 'View Structured Data'}</Button>
+    {open && <>
+      {query.isPending && <LoadingState label="Loading structured invoice…" />}
+      {query.isError && <ErrorState>{errorMessage(query.error)}</ErrorState>}
+      {error && <ErrorState>{error}</ErrorState>}
+      {result && !result.available && <div className="workspace-stack">
+        <p>This legacy invoice contains only the original committed evidence. Generation will identify missing historical information.</p>
+        <Button disabled={busy} onClick={() => void generate()}>Generate from committed record</Button>
+      </div>}
+      {!query.isError && evidence && snapshot && <>
+        <div className="doc-actions">
+          <Button variant="light" asChild><a href={'/api' + path + '/download'} download>Download JSON</a></Button>
+          <Button variant="light" disabled={query.isFetching} onClick={() => void verify()}>Verify Integrity</Button>
+        </div>
+        {message && <p role="status">{message}</p>}
+        <dl className="workspace-definitions">
+          <div><dt>Canonical schema</dt><dd>{result?.schemaVersion}</dd></div>
+          <div><dt>Structured data SHA-256</dt><dd>{result?.sha256}</dd></div>
+          <div><dt>Fiscal snapshot SHA-256</dt><dd>{evidence.originalFinancialSnapshotSha256}</dd></div>
+          <div><dt>Seller</dt><dd>{snapshot.seller.name}{snapshot.seller.tradeName && ' · ' + snapshot.seller.tradeName}</dd></div>
+          <div><dt>Seller tax record</dt><dd>{[snapshot.seller.tin, snapshot.seller.rdo && 'RDO ' + snapshot.seller.rdo, snapshot.seller.vatStatus].filter(Boolean).join(' · ') || 'Uncaptured'}</dd></div>
+          <div><dt>Seller registered address</dt><dd>{snapshot.seller.registeredAddress || 'Uncaptured'}</dd></div>
+          <div><dt>Branch</dt><dd>{snapshot.seller.branchCode} · {snapshot.seller.branchName}</dd></div>
+          <div><dt>Buyer</dt><dd>{[snapshot.buyer.name, snapshot.buyer.tin, snapshot.buyer.classification].filter(Boolean).join(' · ')}</dd></div>
+          {(snapshot.buyer.registeredAddress || snapshot.buyer.billingAddress) &&
+            <div><dt>Buyer address</dt><dd>{snapshot.buyer.registeredAddress || snapshot.buyer.billingAddress}</dd></div>}
+          {snapshot.document.sourceNumber && <div><dt>Source reference</dt><dd>{snapshot.document.sourceNumber}</dd></div>}
+        </dl>
+        <LineTable lines={snapshot.lines} />
+        <ul aria-label="Pinned line tax classifications">{snapshot.lines.map(line =>
+          <li key={line.id}>{line.itemCode} · {line.taxClassification || 'Tax classification uncaptured'}</li>)}</ul>
+        <DocumentTotals totals={snapshot.totals} currency={snapshot.document.currency} />
+        <details><summary>View Validation Results</summary>
+          <p>Internal schema {result?.validation?.internalSchema === 'Valid' ? 'valid' : 'invalid'}. Regulatory evidence {result?.validation?.regulatoryEvidence.toLowerCase()}.</p>
+          <p>Official schema unavailable. Official validation has not been performed.</p>
+          {result?.validation?.issues.map(issue => <p key={issue}>{issue}</p>)}
+          {evidence.evidenceLimitations.map(limitation => <p key={limitation}>{limitation}</p>)}
+          {evidence.documentedAuthorizationReferences?.map(reference =>
+            <p key={reference.id}>{reference.kind} · {reference.reference} · version {reference.number}</p>)}
+        </details>
+        <details className="reporting-evidence"><summary>View JSON</summary>
+          <pre>{JSON.stringify(evidence, null, 2)}</pre>
+        </details>
+      </>}
+    </>}
+  </Card>
 }
 

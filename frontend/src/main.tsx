@@ -75,6 +75,7 @@ function App() {
         <Route path="/preview/client" element={<PortalLayout role="client" />} />
         <Route path="/portal/vendor" element={<VendorWorkspace />} />
         <Route path="/portal/vendor/accreditation" element={<VendorWorkspace />} />
+        <Route path="/portal/vendor/regulatory-schemas" element={<VendorWorkspace />} />
         <Route path="/portal/vendor/connectors" element={<VendorWorkspace />} />
         <Route path="/portal/vendor/connectors/:connectorId" element={<VendorWorkspace />} />
         <Route path="/portal/bir" element={<PortalLayout role="bir" />} />

@@ -47,12 +47,12 @@ const links = [
   { path: 'integrations/history', label: 'Connection History', icon: FileText, integration: true, manage: true },
   { path: 'integrations/reconciliation-settings', label: 'Reconciliation Settings', icon: Settings, integration: true, manage: true, fixture: true },
   { path: 'reconciliation', label: 'Reconciliation', icon: ShieldCheck, fixture: true },
-  { path: 'reporting', label: 'BIR Reporting Preparation', icon: ShieldCheck },
-  { path: 'regulatory-authorizations', label: 'Regulatory Authorizations', icon: ShieldCheck },
+  { path: 'reporting', label: 'BIR Reporting Preparation', icon: ShieldCheck, compliance: true },
+  { path: 'regulatory-authorizations', label: 'Regulatory Authorizations', icon: ShieldCheck, compliance: true },
   { path: 'delivery', label: 'Delivery & Templates', icon: Settings },
-  { path: 'taxpayer', label: 'Taxpayer Registration', icon: FileText },
-  { path: 'rdo', label: 'Registered RDO', icon: FileText },
-  { path: 'branches', label: 'Branch Management', icon: Building2 },
+  { path: 'taxpayer', label: 'Taxpayer Registration', icon: FileText, compliance: true },
+  { path: 'rdo', label: 'Registered RDO', icon: FileText, compliance: true },
+  { path: 'branches', label: 'Branch Management', icon: Building2, compliance: true },
   { path: 'team', label: 'Team Members', icon: Users },
   { path: 'roles', label: 'Roles and Permissions', icon: ShieldCheck },
   { path: 'profile', label: 'User Profile', icon: Settings },
@@ -261,9 +261,12 @@ function WorkspaceShell({ user }: { user: Session }) {
 
   return <main className="portal client-workspace" id="main-content">
     <aside className="portal-sidebar"><Brand /><p>Client Business Portal</p>
-      <nav aria-label="Client workspace">{links.filter(link => !link.integration && (!link.fixture || subscriber?.developmentFixture && subscriber.roleId !== 'encoder' && subscriber.roleId !== 'readonly') && (!link.path ||
+      <nav aria-label="Client workspace">{links.filter(link => !link.integration && !link.compliance && (!link.fixture || subscriber?.developmentFixture && subscriber.roleId !== 'encoder' && subscriber.roleId !== 'readonly') && (!link.path ||
         ['profile', 'security'].includes(link.path) || (!!subscriber && (!link.billing || subscriber.roleId === 'owner'))))
         .map(({ path, label, icon: Icon }) => <NavLink key={label} end={!path} to={root + (path ? '/' + path : '')}><Icon size={16} />{label}</NavLink>)}</nav>
+      {subscriber && <nav aria-label="BIR Compliance"><span className="connect-nav-title">BIR COMPLIANCE</span>
+        {links.filter(link => link.compliance)
+          .map(({ path, label, icon: Icon }) => <NavLink key={path} to={root + '/' + path}><Icon size={16} />{label}</NavLink>)}</nav>}
       {subscriber && <nav aria-label="Integrations"><span className="connect-nav-title">INTEGRATIONS</span>
         {links.filter(link => link.integration && (!link.fixture || subscriber.developmentFixture) && (!link.manage || ['owner', 'company-admin'].includes(subscriber.roleId)))
           .map(({ path, label, icon: Icon }) => <NavLink key={path} to={root + '/' + path}><Icon size={16} />{label}</NavLink>)}</nav>}
