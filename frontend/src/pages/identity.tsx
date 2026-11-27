@@ -1,5 +1,6 @@
 import { VendorBilling } from './vendor-billing'
 import { VendorConnect } from './vendor-connect'
+import { VendorAccreditationWorkspace } from './vendor-accreditation'
 import { useState, type FormEvent, type ReactNode } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { ArrowLeft, ArrowRight, LockKeyhole } from 'lucide-react'
@@ -171,7 +172,9 @@ export function Invitation() {
 }
 
 export function VendorWorkspace() {
-  const builder = useLocation().pathname.startsWith('/portal/vendor/connectors')
+  const path = useLocation().pathname
+  const builder = path.startsWith('/portal/vendor/connectors')
+  const accreditation = path === '/portal/vendor/accreditation'
   const user = useQuery(sessionQuery)
   const queryClient = useQueryClient()
   const navigate = useNavigate()
@@ -190,13 +193,14 @@ export function VendorWorkspace() {
         <nav aria-label="Vendor workspaces" className="connect-actions">
           <Link className="text-link" to="/portal/vendor">Commercial administration</Link>
           <Link className="text-link" to="/portal/vendor/connectors">Universal API Connector Builder</Link>
+          <Link className="text-link" to="/portal/vendor/accreditation">Regulatory Compliance</Link>
           {builder && <>
             <Link className="text-link" to="/portal/vendor/connectors/api-sandbox">API sandbox</Link>
             <Link className="text-link" to="/portal/vendor/connectors/mapping-templates">Mapping templates</Link>
             <Link className="text-link" to="/portal/vendor/connectors/monitor">Connector monitoring</Link>
           </>}
         </nav>
-        {builder ? <VendorConnect /> : <VendorBilling />}
+        {builder ? <VendorConnect /> : accreditation ? <VendorAccreditationWorkspace /> : <VendorBilling />}
       </div>}
   </AccountShell>
 }

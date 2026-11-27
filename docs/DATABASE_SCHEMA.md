@@ -86,3 +86,7 @@ Migration `20261127053018_ReportingPreparationGateway` adds ReportingPreparation
 ### Regulatory authorization storage
 
 Migration 20261127061232 adds RegulatoryAuthorizations, RegulatoryAuthorizationVersions, RegulatoryAuthorizationFiles and RegulatoryAuthorizationReviews. Composite keys bind every row to its taxpayer company. The register has a composite foreign key to its branch, and its scope is unique by branch, authorization kind and document type. Versions and review events have independent numbered histories. PostgreSQL triggers deny edits and deletes. The subscriber lock and expected numbers protect submission and review against stale clients. The evidence bytes and their SHA-256 metadata are stored separately.
+
+### Provider accreditation storage
+
+Migration 20261127062039 adds AccreditationVersions and AccreditationFiles. The category, record key and version number identify append-only records and their optional evidence. PostgreSQL rejects edits and deletes. Optimistic expected versions and unique keys reject concurrent overwrites. The two dedicated accreditation grants are assigned to existing synthetic vendor publishers and new local vendor administrators.

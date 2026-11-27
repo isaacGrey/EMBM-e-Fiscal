@@ -155,7 +155,7 @@ internal static partial class RegulatoryAuthorizations
         return Results.Created($"/api/workspace/{subscriber}/companies/{company}/regulatory-authorizations/{record.Id}/history", version);
     }
 
-    private static string? EvidenceType(string name, byte[] bytes)
+    internal static string? EvidenceType(string name, byte[] bytes)
     {
         var content = bytes.AsSpan();
         switch (Path.GetExtension(name).ToLowerInvariant())

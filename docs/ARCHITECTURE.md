@@ -65,3 +65,7 @@ Company reads require Reports.View and company membership. Preparation and simul
 ### Phase 10.3A authorization evidence
 
 Reporting exposes a separate company authorization register and a preparation-only eligibility service. The service evaluates the current evidence version for the selected branch and document type using Manila calendar dates. Expired, suspended, revoked and unreviewed records are not included as current documented authorizations. It does not infer which permits apply to a taxpayer. Existing reporting preparation remains available independently of these permit records.
+
+### Provider accreditation records
+
+The development vendor portal has separate provider application, internal readiness, regulatory source review and material change registers. The registers store revisioned evidence for EMBM Services OPC and EMBM eFiscal. They have no taxpayer evidence access or runtime authorization effect. The project-owner report of a requested presentation is shown separately from the external decision record.

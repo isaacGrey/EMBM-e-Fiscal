@@ -3348,6 +3348,74 @@ namespace Embm.EFiscal.Api.Infrastructure.Migrations
                     b.ToTable("ReconciliationReviews");
                 });
 
+            modelBuilder.Entity("Embm.EFiscal.Api.Modules.Reporting.AccreditationFile", b =>
+                {
+                    b.Property<string>("Category")
+                        .HasColumnType("character varying(24)");
+
+                    b.Property<string>("Key")
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<int>("Number")
+                        .HasColumnType("integer");
+
+                    b.Property<byte[]>("Content")
+                        .IsRequired()
+                        .HasColumnType("bytea");
+
+                    b.HasKey("Category", "Key", "Number");
+
+                    b.ToTable("AccreditationFiles", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_AccreditationFile_Size", " octet_length(\"Content\") BETWEEN 1 AND 2097152 ");
+                        });
+                });
+
+            modelBuilder.Entity("Embm.EFiscal.Api.Modules.Reporting.AccreditationVersion", b =>
+                {
+                    b.Property<string>("Category")
+                        .HasMaxLength(24)
+                        .HasColumnType("character varying(24)");
+
+                    b.Property<string>("Key")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<int>("Number")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("ContentType")
+                        .HasColumnType("text");
+
+                    b.Property<string>("Details")
+                        .IsRequired()
+                        .HasColumnType("jsonb");
+
+                    b.Property<string>("Filename")
+                        .HasColumnType("text");
+
+                    b.Property<DateTimeOffset>("RecordedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("RecordedBy")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Sha256")
+                        .HasColumnType("text");
+
+                    b.Property<int?>("Size")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Category", "Key", "Number");
+
+                    b.ToTable("AccreditationVersions", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_Accreditation_Category", "\"Number\" > 0 AND \"Category\" IN ('Application','Checklist','Requirement','MaterialChange')");
+
+                            t.HasCheckConstraint("CK_Accreditation_Evidence", "(\"Filename\" IS NULL AND \"ContentType\" IS NULL AND \"Size\" IS NULL AND \"Sha256\" IS NULL) OR\n(\"Filename\" IS NOT NULL AND \"ContentType\" IS NOT NULL AND \"Size\" IS NOT NULL AND\n \"Size\" BETWEEN 1 AND 2097152 AND \"Sha256\" IS NOT NULL AND length(\"Sha256\") = 64)");
+                        });
+                });
+
             modelBuilder.Entity("Embm.EFiscal.Api.Modules.Reporting.RegulatoryAuthorization", b =>
                 {
                     b.Property<Guid>("SubscriberId")
@@ -6039,6 +6107,15 @@ namespace Embm.EFiscal.Api.Infrastructure.Migrations
                         .HasForeignKey("SubscriberId", "CompanyId", "VerificationId")
                         .HasPrincipalKey("SubscriberId", "CompanyId", "Id")
                         .OnDelete(DeleteBehavior.Restrict);
+                });
+
+            modelBuilder.Entity("Embm.EFiscal.Api.Modules.Reporting.AccreditationFile", b =>
+                {
+                    b.HasOne("Embm.EFiscal.Api.Modules.Reporting.AccreditationVersion", null)
+                        .WithOne()
+                        .HasForeignKey("Embm.EFiscal.Api.Modules.Reporting.AccreditationFile", "Category", "Key", "Number")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
                 });
 
             modelBuilder.Entity("Embm.EFiscal.Api.Modules.Reporting.RegulatoryAuthorization", b =>

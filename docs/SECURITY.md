@@ -56,3 +56,7 @@ Preparation and simulation evidence is append-only at the database boundary. Com
 ### Regulatory evidence controls
 
 Owners and company administrators submit evidence. Only the account owner can assign the company-scoped Regulatory Reviewer role, which has review rights and no submit grant. The review API also checks that the reviewer differs from the version submitter. Grants distinguish read, history, review, request, rejection, external documentation, suspension and revocation. The application validates a 2 MiB limit and checks file signatures or parses JSON objects. Files remain untrusted and downloads use attachment-only octet streams with sandbox and nosniff headers. Production malware scanning is still required before an official evidence rollout. Upload and review cannot activate runtime issuance or transmission.
+
+### Provider evidence access
+
+Provider accreditation and taxpayer evidence have separate routes, grants and stores. Provider evidence is available only to explicitly authorized synthetic vendor sessions in Development. The vendor UI does not assert accreditation. Requirement source URLs are limited to BIR HTTPS domains for reference. The service makes no network requests to those URLs.

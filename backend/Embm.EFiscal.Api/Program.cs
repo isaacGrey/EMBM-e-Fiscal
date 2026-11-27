@@ -143,6 +143,7 @@ app.MapMasterData();
 app.MapDocuments();
 app.MapReporting();
 app.MapRegulatoryAuthorizations();
+app.MapVendorAccreditation();
 app.MapVendorConnect();
 app.MapClientConnect();
 app.MapFallback("/{**path}", () => Results.NotFound()).AllowAnonymous();

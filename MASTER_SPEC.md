@@ -117,3 +117,7 @@ React, TypeScript, Vite, Tailwind CSS, shadcn/ui, Lucide, React Router, TanStack
 ### Regulatory authorization evidence
 
 Company authorization records bind a legal taxpayer and branch to one authorization kind and fiscal document type. A record has immutable evidence versions and an append-only review history. Each version pins its documented reference, issuer, solution version, scope and effective dates. A new version awaits independent review. Internal review, documented external authorization and runtime eligibility are separate states. A taxpayer permit does not imply a transmission permit or provider accreditation. Production issuance and live transmission remain disabled.
+
+### Regulatory source review
+
+BIR [Revenue Memorandum Circular No. 98-2026 digest](https://bir-cdn.bir.gov.ph/BIR/pdf/RMC%20No.%2098-2026%20Digest.pdf) distinguishes electronic invoicing and electronic sales reporting and indicates separate ESP guidance. [Revenue Regulations No. 11-2025](https://bir-cdn.bir.gov.ph/BIR/pdf/RR%20No.%2011-2025.pdf) and its [amendment, RR No. 26-2025](https://bir-cdn.bir.gov.ph/BIR/pdf/RR%20No.%2026-2025.pdf), are source references for applicability review. Registry entries track internal source review and outstanding questions. None of these records supplies the upcoming BIR API specification or proves EMBM's accreditation.
