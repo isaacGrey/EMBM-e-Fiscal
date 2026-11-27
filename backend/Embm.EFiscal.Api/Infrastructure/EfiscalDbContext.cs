@@ -104,6 +104,7 @@ public sealed class EfiscalDbContext(DbContextOptions<EfiscalDbContext> options)
     protected override void OnModelCreating(ModelBuilder b)
     {
         Modules.Reporting.ReportingGateway.Configure(b);
+        Modules.Reporting.RegulatoryAuthorizations.Configure(b);
         CompanyConfigurationModel.Configure(b);
         BillingModel.Configure(b);
         MasterModel.Configure(b);

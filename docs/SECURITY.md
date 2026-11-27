@@ -52,3 +52,7 @@ Use existing company and document authorization for mapping, destinations and sy
 ## Reporting preparation controls
 
 Preparation and simulation evidence is append-only at the database boundary. Composite foreign keys enforce tenant and company scope and a trigger excludes Sales Orders. Requests reauthorize company membership and permissions; read-only roles cannot mutate. Serializing preparation and simulation under the subscriber row lock prevents duplicate evidence without involving the credit engine. Simulation requires Development and synthetic subscriber/document flags. Neither module opens a socket, accepts provider destinations/secrets, changes issuance authorization or marks a document accepted by government. BIR login and live transmission remain disabled.
+
+### Regulatory evidence controls
+
+Owners and company administrators submit evidence. Only the account owner can assign the company-scoped Regulatory Reviewer role, which has review rights and no submit grant. The review API also checks that the reviewer differs from the version submitter. Grants distinguish read, history, review, request, rejection, external documentation, suspension and revocation. The application validates a 2 MiB limit and checks file signatures or parses JSON objects. Files remain untrusted and downloads use attachment-only octet streams with sandbox and nosniff headers. Production malware scanning is still required before an official evidence rollout. Upload and review cannot activate runtime issuance or transmission.

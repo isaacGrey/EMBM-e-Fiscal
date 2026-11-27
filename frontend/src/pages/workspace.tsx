@@ -18,6 +18,7 @@ import { Synchronization } from './accounting-sync'
 import { ReconciliationWorkspace } from './reconciliation'
 import { ReconciliationCoverage } from './reconciliation-coverage'
 import { ReportingWorkspace } from './reporting'
+import { RegulatoryAuthorizationWorkspace } from './regulatory-authorization'
 import { BranchSettings, CompanySettings, RdoHistory, SecuritySettings, SettingsForm, TaxpayerSettings, TeamSettings, UserSettings } from './workspace-settings'
 import './workspace.css'
 
@@ -47,6 +48,7 @@ const links = [
   { path: 'integrations/reconciliation-settings', label: 'Reconciliation Settings', icon: Settings, integration: true, manage: true, fixture: true },
   { path: 'reconciliation', label: 'Reconciliation', icon: ShieldCheck, fixture: true },
   { path: 'reporting', label: 'BIR Reporting Preparation', icon: ShieldCheck },
+  { path: 'regulatory-authorizations', label: 'Regulatory Authorizations', icon: ShieldCheck },
   { path: 'delivery', label: 'Delivery & Templates', icon: Settings },
   { path: 'taxpayer', label: 'Taxpayer Registration', icon: FileText },
   { path: 'rdo', label: 'Registered RDO', icon: FileText },
@@ -197,6 +199,9 @@ function SubscriberWorkspace({ subscriber, user, active, section }: { subscriber
       : <ErrorState>Delivery settings require Company.Manage permission.</ErrorState>
     else if (section === 'workstations' || section === 'documents' || section.startsWith('documents/'))
       content = <DocumentsWorkspace key={companyPath} base={companyPath + '/documents'} companyPath={companyPath} section={section} branch={active.branchId ?? undefined} />
+    else if (section === 'regulatory-authorizations') content = grants.includes('Regulatory.Evidence.View')
+      ? <RegulatoryAuthorizationWorkspace key={companyPath} base={companyPath + '/regulatory-authorizations'} branches={branches.data ?? []} />
+      : <ErrorState>Authorization evidence is unavailable for your role.</ErrorState>
     else if (section === 'reporting') content = grants.includes('Reports.View')
       ? <ReportingWorkspace key={companyPath} base={companyPath + '/reporting'} /> : <ErrorState>Reporting access is unavailable for your role.</ErrorState>
     else if (section === 'reconciliation' || section.startsWith('reconciliation/'))

@@ -1,6 +1,7 @@
 using Embm.EFiscal.Api.Modules.Documents;
 using Embm.EFiscal.Api.Modules.MasterData;
 using Embm.EFiscal.Api.Modules.Reconciliation;
+using Embm.EFiscal.Api.Modules.Reporting;
 
 namespace Embm.EFiscal.Api.Modules.Tenants;
 
@@ -21,7 +22,8 @@ public static class Permissions
     private static readonly string[] Reports = ["Reports.View", Coverage.View];
     private static readonly string[] ReconcileWork = [Coverage.Run, Coverage.Batch, Coverage.Review, Coverage.Export, Coverage.References];
     private static readonly string[] ReconcileAdmin = [Coverage.Manage, Coverage.Approve, Coverage.Policy, Coverage.Schedule, Coverage.Assign, Coverage.Match];
-    private static readonly string[] CompanyAdmin = [CompanyManage, BranchManage, UsersInvite, "Integration.Manage", "Mapping.Manage"];
+    private static readonly string[] CompanyAdmin = [CompanyManage, BranchManage, UsersInvite, "Integration.Manage", "Mapping.Manage",
+        ..RegulatoryAuthorizations.ReaderGrants, RegulatoryAuthorizations.Submit];
 
     private static readonly string[] MasterRead = [MasterSchema.View, "Customers.View", "Items.View", "TaxGroups.View", "DiscountGroups.View", "PriceLists.View"];
     private static readonly string[] MasterManage = ["Customers.Manage", "Customers.Import", "Items.Manage", "Items.Import", "PriceLists.Manage", MasterSchema.Export];
@@ -33,11 +35,12 @@ public static class Permissions
         (Administrator, "Company Administrator", [..Reader, ..FinancialView, ..MasterRead, ..Encoder, ..Reports, ..ReconcileWork, ..ReconcileAdmin, ..CompanyAdmin, ..MasterManage, ..FinancialManage, DocumentEndpoints.ExportPermission, DocumentEndpoints.ResendPermission, MasterSchema.Calculate]),
         ("accountant", "Accountant", [..Reader, ..FinancialView, ..MasterRead, ..Encoder, ..Reports, ..ReconcileWork, ..MasterManage, ..FinancialManage, DocumentEndpoints.ExportPermission, DocumentEndpoints.ResendPermission, MasterSchema.Calculate]),
         ("encoder", "Transaction Encoder", [..Reader, ..FinancialView, ..MasterRead, ..Encoder, MasterSchema.Calculate]),
-        ("auditor", "Auditor", [..Reader, ..FinancialView, ..MasterRead, ..Reports]),
+        ("auditor", "Auditor", [..Reader, ..FinancialView, ..MasterRead, ..Reports, ..RegulatoryAuthorizations.ReaderGrants]),
+        ("regulatory-reviewer", "Regulatory Reviewer", [..Reader, ..RegulatoryAuthorizations.ReviewerGrants]),
         ("readonly", "Read-Only User", [..Reader, ..FinancialView, ..MasterRead])
     ];
 
     public static bool CanAssign(string inviter, string target) =>
         target != Owner && Roles.Any(role => role.Id == target) &&
-        (inviter == Owner || (inviter == Administrator && target != Administrator));
+        (inviter == Owner || (inviter == Administrator && target != Administrator && target != "regulatory-reviewer"));
 }

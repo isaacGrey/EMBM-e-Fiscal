@@ -3348,6 +3348,177 @@ namespace Embm.EFiscal.Api.Infrastructure.Migrations
                     b.ToTable("ReconciliationReviews");
                 });
 
+            modelBuilder.Entity("Embm.EFiscal.Api.Modules.Reporting.RegulatoryAuthorization", b =>
+                {
+                    b.Property<Guid>("SubscriberId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("CompanyId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("BranchId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("DocumentType")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("Kind")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.HasKey("SubscriberId", "CompanyId", "Id");
+
+                    b.HasIndex("SubscriberId", "CompanyId", "BranchId", "Kind", "DocumentType")
+                        .IsUnique();
+
+                    b.ToTable("RegulatoryAuthorizations", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_RegulatoryAuthorization_Document", " \"DocumentType\" IN ('SalesInvoice', 'CreditMemo') ");
+
+                            t.HasCheckConstraint("CK_RegulatoryAuthorization_Kind", "\"Kind\" IN ('PermitToIssue', 'EisCertification', 'PermitToTransmit', 'CasRegistration', 'PermitToUse',\n  'AcknowledgmentCertificate', 'Other')");
+                        });
+                });
+
+            modelBuilder.Entity("Embm.EFiscal.Api.Modules.Reporting.RegulatoryAuthorizationFile", b =>
+                {
+                    b.Property<Guid>("SubscriberId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("CompanyId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("AuthorizationId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("Number")
+                        .HasColumnType("integer");
+
+                    b.Property<byte[]>("Content")
+                        .IsRequired()
+                        .HasColumnType("bytea");
+
+                    b.HasKey("SubscriberId", "CompanyId", "AuthorizationId", "Number");
+
+                    b.ToTable("RegulatoryAuthorizationFiles", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_RegulatoryFile_Size", " octet_length(\"Content\") BETWEEN 1 AND 2097152 ");
+                        });
+                });
+
+            modelBuilder.Entity("Embm.EFiscal.Api.Modules.Reporting.RegulatoryAuthorizationReview", b =>
+                {
+                    b.Property<Guid>("SubscriberId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("CompanyId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("AuthorizationId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("Number")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("Sequence")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Decision")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("Reason")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<DateTimeOffset>("ReviewedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("Reviewer")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("SubscriberId", "CompanyId", "AuthorizationId", "Number", "Sequence");
+
+                    b.ToTable("RegulatoryAuthorizationReviews", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_RegulatoryReview_Decision", " \"Sequence\" > 0 AND \"Decision\" IN ('ReviewAccepted', 'AdditionalEvidence', 'Rejected', 'ExternalAuthorizationDocumented', 'Suspended', 'Revoked') ");
+                        });
+                });
+
+            modelBuilder.Entity("Embm.EFiscal.Api.Modules.Reporting.RegulatoryAuthorizationVersion", b =>
+                {
+                    b.Property<Guid>("SubscriberId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("CompanyId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("AuthorizationId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("Number")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Authority")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("ContentType")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<DateOnly>("EffectiveFrom")
+                        .HasColumnType("date");
+
+                    b.Property<DateOnly?>("ExpiresOn")
+                        .HasColumnType("date");
+
+                    b.Property<string>("Filename")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("Reference")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("Scope")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("Sha256")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<int>("Size")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Solution")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("SolutionVersion")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<DateTimeOffset>("SubmittedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("SubmittedBy")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("SubscriberId", "CompanyId", "AuthorizationId", "Number");
+
+                    b.ToTable("RegulatoryAuthorizationVersions", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_RegulatoryVersion_Dates", " \"ExpiresOn\" IS NULL OR \"ExpiresOn\" >= \"EffectiveFrom\" ");
+
+                            t.HasCheckConstraint("CK_RegulatoryVersion_Evidence", " \"Number\" > 0 AND \"Size\" BETWEEN 1 AND 2097152 AND length(\"Sha256\") = 64 ");
+                        });
+                });
+
             modelBuilder.Entity("Embm.EFiscal.Api.Modules.Reporting.ReportingPreparation", b =>
                 {
                     b.Property<Guid>("Id")
@@ -3753,6 +3924,18 @@ namespace Embm.EFiscal.Api.Infrastructure.Migrations
                         },
                         new
                         {
+                            Id = "Regulatory.Evidence.View"
+                        },
+                        new
+                        {
+                            Id = "Regulatory.Evidence.History"
+                        },
+                        new
+                        {
+                            Id = "Regulatory.Evidence.Submit"
+                        },
+                        new
+                        {
                             Id = "Customers.Manage"
                         },
                         new
@@ -3822,6 +4005,30 @@ namespace Embm.EFiscal.Api.Infrastructure.Migrations
                         new
                         {
                             Id = "Credits.Purchase"
+                        },
+                        new
+                        {
+                            Id = "Regulatory.Evidence.Review"
+                        },
+                        new
+                        {
+                            Id = "Regulatory.Evidence.RequestMore"
+                        },
+                        new
+                        {
+                            Id = "Regulatory.Evidence.Reject"
+                        },
+                        new
+                        {
+                            Id = "Regulatory.Authorization.RecordExternal"
+                        },
+                        new
+                        {
+                            Id = "Regulatory.Authorization.Suspend"
+                        },
+                        new
+                        {
+                            Id = "Regulatory.Authorization.Revoke"
                         });
                 });
 
@@ -3968,6 +4175,11 @@ namespace Embm.EFiscal.Api.Infrastructure.Migrations
                         {
                             Id = "auditor",
                             Name = "Auditor"
+                        },
+                        new
+                        {
+                            Id = "regulatory-reviewer",
+                            Name = "Regulatory Reviewer"
                         },
                         new
                         {
@@ -4155,6 +4367,21 @@ namespace Embm.EFiscal.Api.Infrastructure.Migrations
                         {
                             RoleId = "owner",
                             PermissionId = "Mapping.Manage"
+                        },
+                        new
+                        {
+                            RoleId = "owner",
+                            PermissionId = "Regulatory.Evidence.View"
+                        },
+                        new
+                        {
+                            RoleId = "owner",
+                            PermissionId = "Regulatory.Evidence.History"
+                        },
+                        new
+                        {
+                            RoleId = "owner",
+                            PermissionId = "Regulatory.Evidence.Submit"
                         },
                         new
                         {
@@ -4414,6 +4641,21 @@ namespace Embm.EFiscal.Api.Infrastructure.Migrations
                         new
                         {
                             RoleId = "company-admin",
+                            PermissionId = "Regulatory.Evidence.View"
+                        },
+                        new
+                        {
+                            RoleId = "company-admin",
+                            PermissionId = "Regulatory.Evidence.History"
+                        },
+                        new
+                        {
+                            RoleId = "company-admin",
+                            PermissionId = "Regulatory.Evidence.Submit"
+                        },
+                        new
+                        {
+                            RoleId = "company-admin",
                             PermissionId = "Customers.Manage"
                         },
                         new
@@ -4795,6 +5037,66 @@ namespace Embm.EFiscal.Api.Infrastructure.Migrations
                         {
                             RoleId = "auditor",
                             PermissionId = "Reconciliation.View"
+                        },
+                        new
+                        {
+                            RoleId = "auditor",
+                            PermissionId = "Regulatory.Evidence.View"
+                        },
+                        new
+                        {
+                            RoleId = "auditor",
+                            PermissionId = "Regulatory.Evidence.History"
+                        },
+                        new
+                        {
+                            RoleId = "regulatory-reviewer",
+                            PermissionId = "Company.View"
+                        },
+                        new
+                        {
+                            RoleId = "regulatory-reviewer",
+                            PermissionId = "Branch.View"
+                        },
+                        new
+                        {
+                            RoleId = "regulatory-reviewer",
+                            PermissionId = "Regulatory.Evidence.View"
+                        },
+                        new
+                        {
+                            RoleId = "regulatory-reviewer",
+                            PermissionId = "Regulatory.Evidence.History"
+                        },
+                        new
+                        {
+                            RoleId = "regulatory-reviewer",
+                            PermissionId = "Regulatory.Evidence.Review"
+                        },
+                        new
+                        {
+                            RoleId = "regulatory-reviewer",
+                            PermissionId = "Regulatory.Evidence.RequestMore"
+                        },
+                        new
+                        {
+                            RoleId = "regulatory-reviewer",
+                            PermissionId = "Regulatory.Evidence.Reject"
+                        },
+                        new
+                        {
+                            RoleId = "regulatory-reviewer",
+                            PermissionId = "Regulatory.Authorization.RecordExternal"
+                        },
+                        new
+                        {
+                            RoleId = "regulatory-reviewer",
+                            PermissionId = "Regulatory.Authorization.Suspend"
+                        },
+                        new
+                        {
+                            RoleId = "regulatory-reviewer",
+                            PermissionId = "Regulatory.Authorization.Revoke"
                         },
                         new
                         {
@@ -5737,6 +6039,49 @@ namespace Embm.EFiscal.Api.Infrastructure.Migrations
                         .HasForeignKey("SubscriberId", "CompanyId", "VerificationId")
                         .HasPrincipalKey("SubscriberId", "CompanyId", "Id")
                         .OnDelete(DeleteBehavior.Restrict);
+                });
+
+            modelBuilder.Entity("Embm.EFiscal.Api.Modules.Reporting.RegulatoryAuthorization", b =>
+                {
+                    b.HasOne("Embm.EFiscal.Api.Modules.Tenants.TaxpayerProfile", null)
+                        .WithMany()
+                        .HasForeignKey("SubscriberId", "CompanyId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Embm.EFiscal.Api.Modules.Tenants.Branch", null)
+                        .WithMany()
+                        .HasForeignKey("SubscriberId", "CompanyId", "BranchId")
+                        .HasPrincipalKey("SubscriberId", "CompanyId", "Id")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Embm.EFiscal.Api.Modules.Reporting.RegulatoryAuthorizationFile", b =>
+                {
+                    b.HasOne("Embm.EFiscal.Api.Modules.Reporting.RegulatoryAuthorizationVersion", null)
+                        .WithOne()
+                        .HasForeignKey("Embm.EFiscal.Api.Modules.Reporting.RegulatoryAuthorizationFile", "SubscriberId", "CompanyId", "AuthorizationId", "Number")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Embm.EFiscal.Api.Modules.Reporting.RegulatoryAuthorizationReview", b =>
+                {
+                    b.HasOne("Embm.EFiscal.Api.Modules.Reporting.RegulatoryAuthorizationVersion", null)
+                        .WithMany()
+                        .HasForeignKey("SubscriberId", "CompanyId", "AuthorizationId", "Number")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Embm.EFiscal.Api.Modules.Reporting.RegulatoryAuthorizationVersion", b =>
+                {
+                    b.HasOne("Embm.EFiscal.Api.Modules.Reporting.RegulatoryAuthorization", null)
+                        .WithMany()
+                        .HasForeignKey("SubscriberId", "CompanyId", "AuthorizationId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
                 });
 
             modelBuilder.Entity("Embm.EFiscal.Api.Modules.Reporting.ReportingPreparation", b =>

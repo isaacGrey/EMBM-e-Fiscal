@@ -113,3 +113,7 @@ Preparation copies committed Sales Invoice and Credit Memo evidence without chan
 ## Approved implementation stack
 
 React, TypeScript, Vite, Tailwind CSS, shadcn/ui, Lucide, React Router, TanStack Query and Table, React Hook Form, Zod, and Recharts. ASP.NET Core, C#, EF Core, PostgreSQL, OpenAPI, RabbitMQ, a transactional outbox, and worker services. Modular monolith, REST, Docker-compatible infrastructure, secure authentication and authorization, and tenant-isolated financial records.
+
+### Regulatory authorization evidence
+
+Company authorization records bind a legal taxpayer and branch to one authorization kind and fiscal document type. A record has immutable evidence versions and an append-only review history. Each version pins its documented reference, issuer, solution version, scope and effective dates. A new version awaits independent review. Internal review, documented external authorization and runtime eligibility are separate states. A taxpayer permit does not imply a transmission permit or provider accreditation. Production issuance and live transmission remain disabled.

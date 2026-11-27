@@ -82,3 +82,7 @@ Migration `20261127012025_SourceStatusHistoryAndResponsePins` adds scoped append
 ## Reporting preparation evidence
 
 Migration `20261127053018_ReportingPreparationGateway` adds ReportingPreparations and ReportingSimulations. Composite foreign keys bind preparation to the same subscriber/company fiscal document and simulation to the same scoped preparation. A unique document/schema key and subscriber row lock make preparation idempotent. A unique preparation simulation key makes local simulation idempotent. PostgreSQL triggers reject updates/deletes to either evidence table and reject preparation inserts for Sales Orders. Original documents and processing states are unchanged. Content is exact text rather than JSONB so its UTF-8 integrity digest is reproducible.
+
+### Regulatory authorization storage
+
+Migration 20261127061232 adds RegulatoryAuthorizations, RegulatoryAuthorizationVersions, RegulatoryAuthorizationFiles and RegulatoryAuthorizationReviews. Composite keys bind every row to its taxpayer company. The register has a composite foreign key to its branch, and its scope is unique by branch, authorization kind and document type. Versions and review events have independent numbered histories. PostgreSQL triggers deny edits and deletes. The subscriber lock and expected numbers protect submission and review against stale clients. The evidence bytes and their SHA-256 metadata are stored separately.

@@ -61,3 +61,7 @@ The API execution workspace builds requests from explicitly approved capabilitie
 Reporting is a separate module over immutable committed invoices and credit memos. An explicitly requested preparation copies the pinned fiscal evidence into an internal `embm-preparation-v1` envelope and stores its exact UTF-8 SHA-256 digest. It does not construct an official BIR payload. The preparation and optional local simulation are independent from document commitment, accounting, delivery and regulator status. No network transport, endpoint configuration, credentials or live-send switch exists.
 
 Company reads require Reports.View and company membership. Preparation and simulation also require Company.Manage, revalidated under the subscriber lock. Simulation is mapped only in Development and requires both subscriber and document fixture flags. Future official mapping and transport must be separately reviewed against published BIR specifications and authorization; neither is assumed by this preparation milestone.
+
+### Phase 10.3A authorization evidence
+
+Reporting exposes a separate company authorization register and a preparation-only eligibility service. The service evaluates the current evidence version for the selected branch and document type using Manila calendar dates. Expired, suspended, revoked and unreviewed records are not included as current documented authorizations. It does not infer which permits apply to a taxpayer. Existing reporting preparation remains available independently of these permit records.
