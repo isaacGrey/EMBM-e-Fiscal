@@ -1,0 +1,8 @@
+<Solution>
+  <Folder Name="/backend/">
+    <Project Path="backend/Embm.EFiscal.Api/Embm.EFiscal.Api.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/Embm.EFiscal.Api.Tests/Embm.EFiscal.Api.Tests.csproj" />
+  </Folder>
+</Solution>

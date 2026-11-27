@@ -1,0 +1,8 @@
+**
+!backend/
+!backend/Embm.EFiscal.Api/
+!backend/Embm.EFiscal.Api/**
+**/bin/
+**/obj/
+**/appsettings.Local.json
+**/.env*

@@ -1,0 +1,10 @@
+
+.reconciliation-nav { display: flex; flex-wrap: wrap; gap: .45rem .9rem; min-width: 0; }
+.reconciliation-nav a { padding-block: .28rem; }
+.reconciliation-nav a[aria-current="page"] { text-decoration: underline; text-underline-offset: .2em; }
+.reconciliation-metrics { margin: .25rem 0; }
+.reconciliation-metrics > div { background: #f3f6fb; padding: .7rem .85rem; border-radius: .5rem; }
+.reconciliation-metrics dt { font-size: .85rem; color: #52677e; }
+.reconciliation-metrics dd { margin-inline-start: 0; margin-block-start: .28rem; font-size: 1.1rem; font-weight: 700; }
+.reconciliation-warning { padding: .7rem .85rem; background: #fff5e4; border-inline-start: .22rem solid #e7a443; }
+

@@ -1,0 +1,34 @@
+.client-workspace .portal-content { max-width: 1220px; }
+.client-workspace .portal-sidebar nav a:not([aria-current="page"]) { background: transparent; color: #354662; font-weight: 550; }
+.client-workspace .portal-sidebar nav a:not([aria-current="page"]):hover { background: var(--color-porcelain); color: #3048bc; }
+.workspace-stack { display: grid; gap: 15px; }
+.workspace-card { display: grid; gap: 12px; padding: clamp(16px, 2.6vw, 26px); min-width: 0; }
+.workspace-card h2 { font-size: 22px; }
+.workspace-card p { color: var(--color-secondary); font-size: 14px; }
+.workspace-card .button { justify-self: start; width: fit-content; white-space: normal; }
+.workspace-form { display: grid; gap: 13px; margin-top: 8px; min-width: 0; }
+.workspace-form .content-note { margin: 0; }
+.workspace-card .workspace-success { color: #11786b; font-weight: 650; }
+.workspace-definitions { display: grid; gap: 4px; }
+.workspace-definitions div { display: grid; grid-template-columns: minmax(115px, .65fr) minmax(0, 1fr); gap: 10px; border-top: 1px solid var(--color-line); padding: 8px 0; font-size: 14px; }
+.workspace-definitions dt { color: var(--color-secondary); }
+.workspace-definitions dd { overflow-wrap: anywhere; font-weight: 650; }
+.selector-grid { display: grid; gap: 12px; grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.wizard-progress { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 8px; padding: 0 0 13px; border-bottom: 1px solid var(--color-line); }
+.wizard-progress li { display: flex; align-items: flex-start; gap: 7px; font-size: 12px; color: var(--color-secondary); }
+.wizard-progress li[aria-current] { color: #3048bc; font-weight: 700; }
+.wizard-progress span { flex: none; width: 21px; height: 21px; display: grid; place-items: center; border-radius: 6px; background: #edf0f8; }
+.wizard-progress li[aria-current] span { background: var(--action); color: white; }
+.workspace-table { font-size: 13px; }
+.workspace-table td, .workspace-table th { padding: 9px; border-bottom: 1px solid var(--color-line); }
+.grants-grid { display: flex; flex-wrap: wrap; gap: 6px; padding-block: 8px; }
+.grants-grid li { background: var(--color-porcelain); padding: 4px 7px; border-radius: 5px; font-size: 12px; }
+.company-checks { display: grid; gap: 5px; }
+.company-checks legend { font-weight: 650; font-size: 13px; margin-bottom: 6px; }
+@media (max-width: 850px) { .selector-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 600px) {
+  .selector-grid { grid-template-columns: 1fr; }
+  .client-workspace .portal-sidebar nav > a { padding: 6px 7px; }
+  .wizard-progress { grid-template-columns: 1fr; }
+  .wizard-progress li:not([aria-current]) { display: none; }
+}

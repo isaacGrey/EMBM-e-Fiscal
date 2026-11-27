@@ -1,0 +1,8 @@
+{
+  "source": "Fictional EMBM eFiscal development fixtures. Not an official BIR directory.",
+  "developmentFixture": true,
+  "entries": [
+    { "code": "001", "name": "Fictional Development Office A", "active": true },
+    { "code": "009", "name": "Fictional Development Office B", "active": true }
+  ]
+}

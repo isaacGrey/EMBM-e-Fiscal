@@ -1,0 +1,24 @@
+.doc-stack { display: grid; gap: 1rem; min-width: 0; }
+.doc-toolbar, .doc-actions { display: flex; flex-wrap: wrap; align-items: center; gap: .65rem .85rem; }
+.doc-toolbar { justify-content: space-between; }
+.doc-panel { display: grid; gap: .9rem; min-width: 0; }
+.doc-panel :is(h2,h3,h4,p,dl) { margin-block: 0; }
+.doc-grid { display:grid; grid-template-columns: repeat(auto-fit,minmax(min(100%,13rem),1fr)); gap: .75rem 1rem; border:0; padding:0; margin:0; min-width:0; align-items:start; }
+.doc-form { display:grid; gap:1rem; }
+.doc-fieldset { min-width:0; border:0; padding:0; margin:0; }
+.doc-line { display:grid; gap:.8rem; min-width:0; padding:.85rem; margin:0; border:1px solid #e2e8f0; border-radius:10px; }
+.doc-line legend { padding:0 .4rem; font-weight:700; }
+.doc-note { color:#64748b; font-size:.875rem; }
+.doc-table { overflow-x:auto; max-width:100%; }
+.doc-table table { width:100%; border-collapse:collapse; font-size:.875rem; white-space:nowrap; }
+.doc-table :is(th,td) { text-align:left; border-bottom:1px solid #e2e8f0; padding:.7rem .75rem; }
+.doc-table th { background:#f4f7fb; }
+.doc-check { display:flex; gap:.55rem; align-items:center; font-size:.9rem; }
+.doc-line details > summary, .doc-panel details > summary { cursor:pointer; margin-bottom:.7rem; font-weight:700; }
+.doc-panel textarea { width:100%; padding:.65rem; border-radius:8px; border:1px solid #c8d5eb; color:inherit; font:inherit; }
+.doc-preview-mails { white-space:pre-wrap; overflow-wrap:anywhere; }
+.doc-panel dd { overflow-wrap:anywhere; }
+.doc-warning { color:#7d4f14; background:#fff5df; border-radius:8px; padding:.7rem; }
+.doc-amount { font-variant-numeric:tabular-nums; }
+.doc-template-selector { min-width:0; }
+

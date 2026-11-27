@@ -1,0 +1,27 @@
+.company-delivery-tabs { display: flex; flex-wrap: wrap; gap: 8px; }
+.template-designer-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 14px; align-items: start; }
+.mail-preview-body { white-space: pre-wrap; overflow-wrap: anywhere; }
+.template-variables summary { font-size: 13px; color: var(--action); font-weight: 650; }
+.template-variables p { margin-top: 8px; }
+.layout-column-settings { border: 1px solid var(--color-line); border-radius: 8px; padding: 9px; }
+.layout-column-settings legend { padding: 0 4px; font-size: 13px; font-weight: 650; }
+.layout-column-settings ol { display: grid; gap: 5px; }
+.layout-column-settings li { display: flex; align-items: center; gap: 5px; padding: 4px; border-bottom: 1px solid var(--color-line); font-size: 13px; }
+.layout-column-settings li span { flex: 1; }
+.layout-column-settings .button { min-height: 30px; padding-inline: 8px; }
+.template-paper { border: 1px solid var(--color-line); border-top-width: 4px; border-radius: 8px; display: grid; gap: 11px; min-width: 0; overflow-wrap: anywhere; }
+.template-paper h3 { font-size: 22px; }
+.template-font-serif { font-family: Georgia, serif; }
+.template-font-mono { font-family: Consolas, monospace; }
+.template-logo { max-height: 54px; max-width: 125px; object-fit: contain; }
+.template-preview-details { display: grid; gap: 6px; font-size: 12px; }
+.template-preview-details dt { color: var(--color-secondary); }
+.template-preview-details dd { font-weight: 650; }
+.preview-details-split { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.template-page-number { text-align: right; border-top: 1px solid var(--color-line); padding-top: 6px; }
+.company-workstation-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+.company-workstation-grid > div { display: grid; gap: 8px; padding: 14px; border: 1px solid var(--color-line); border-radius: 9px; }
+.company-workstation-grid .badge { align-self: end; }
+@media (max-width: 1000px) { .template-designer-grid { grid-template-columns: 1fr; } }
+@media (max-width: 600px) { .company-workstation-grid { grid-template-columns: 1fr; } }
+

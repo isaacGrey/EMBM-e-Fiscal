@@ -1,0 +1,8 @@
+**/node_modules/**
+**/dist/**
+**/obj/**
+**/bin/**
+**/TestResults/**
+**/playwright-report/**
+graphify-out/**
+**/package-lock.json

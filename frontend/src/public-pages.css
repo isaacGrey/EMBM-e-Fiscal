@@ -1,0 +1,108 @@
+
+.mobile-nav[hidden] { display: none; }
+.desktop-nav a[aria-current="page"], .mobile-nav a[aria-current="page"] { color: white; text-decoration: underline; text-underline-offset: .35em; }
+.public-footer .footer-top nav { justify-content: flex-end; }
+.section-link { margin-top: 20px; }
+.page-intro { padding-block: clamp(37px, 6vw, 72px); color: white; background: #11213a; border-bottom: 1px solid var(--dark-border); }
+.page-intro .eyebrow { color: #adc0ff; }
+.page-intro h1 { max-width: 840px; font-size: clamp(32px, 4.8vw, 54px); }
+.page-intro p { margin-top: 15px; max-width: 680px; color: #bfcee3; font-size: 16px; line-height: 1.65; }
+.reading-width { max-width: 850px; }
+.content-note { color: var(--color-secondary); font-size: 13px; line-height: 1.6; margin-top: 14px; }
+.plan-section { padding-block: 41px 56px; }
+.pricing-toolbar { display: flex; gap: 12px 24px; align-items: flex-end; flex-wrap: wrap; margin-bottom: 23px; }
+.pricing-toolbar > .badge { align-self: center; }
+.pricing-tools { display: flex; flex-wrap: wrap; gap: 8px 18px; align-self: center; margin-left: auto; }
+.billing-selector { min-width: 0; }
+.billing-selector legend { margin-bottom: 6px; font-size: 12px; font-weight: 650; color: #4e617a; }
+.billing-selector > div { display: flex; gap: 3px; padding: 4px; background: var(--color-porcelain); border: 1px solid var(--color-line); border-radius: 9px; }
+.billing-selector label { position: relative; cursor: pointer; }
+.billing-selector input { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
+.billing-selector span { display: block; padding: 7px 17px; border-radius: 6px; font-size: 13px; font-weight: 650; }
+.billing-selector input:checked + span { background: var(--action); color: white; }
+.billing-selector input:focus-visible + span { outline: 3px solid var(--focus); outline-offset: 2px; }
+
+.subscription-grid, .top-up-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 15px; }
+.subscription-card { display: flex; flex-direction: column; gap: 12px; min-width: 0; padding: clamp(15px, 2vw, 25px); }
+.subscription-card h2, .registration-card h2, .registration-summary h2 { font-size: 24px; }
+.subscription-card > p, .registration-card > p, .registration-success p, .registration-summary > p { color: var(--color-secondary); font-size: 14px; line-height: 1.58; }
+.subscription-card > p { min-height: 2.9em; }
+.subscription-price strong { font-weight: 780; font-size: clamp(25px, 2.7vw, 38px); letter-spacing: -.042em; }
+.subscription-price > span { color: var(--color-secondary); white-space: nowrap; font-size: 13px; }
+.subscription-limits, .credit-rates { color: #415470; font-size: 13px; }
+.subscription-limits > div, .credit-rates > div { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; padding: 8px 0; border-top: 1px solid var(--color-line); }
+.subscription-limits dd, .credit-rates dd { text-align: right; color: var(--color-ink); font-variant-numeric: tabular-nums; font-weight: 650; }
+.subscription-capabilities { display: grid; gap: 7px; margin: 0 0 4px; }
+.subscription-capabilities li { display: flex; align-items: flex-start; gap: 8px; font-size: 13px; }
+.subscription-capabilities svg, .support-links svg { color: #128174; flex: none; margin-top: 1px; }
+.subscription-card > .button { margin-top: auto; }
+.comparison-scroll { margin-top: 24px; overflow: auto; background: white; border-radius: var(--radius); border: 1px solid var(--color-line); }
+.comparison-scroll > .table-scroll { overflow: visible; }
+.comparison-table { font-size: 13px; }
+.comparison-table th, .comparison-table td { text-align: left; padding: 11px 14px; border-bottom: 1px solid var(--color-line); }
+.comparison-table th { font-weight: 670; }
+.comparison-table thead th { background: #eaf0fc; }
+.comparison-table tbody tr:last-child > * { border-bottom: 0; }
+.comparison-table td { color: #415470; }
+.credit-rates { margin-top: 19px; max-width: 360px; }
+.credit-rates dt small { display: block; color: var(--color-secondary); margin-top: 2px; }
+.top-up-grid { margin-top: 24px; }
+.top-up-card { display: flex; align-items: center; gap: 12px; padding: 16px; }
+.top-up-card svg { flex: none; color: var(--action); }
+.top-up-card b, .top-up-card span { display: block; }
+.top-up-card div > span { color: var(--color-secondary); margin-top: 4px; font-size: 13px; }
+.top-up-card .money { display: inline; }
+.phase2-estimator { grid-template-columns: 1.16fr .84fr; }
+.estimator-fields, .form-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 11px; }
+.estimator-inputs .estimator-fields .field + .field { margin-top: 0; }
+.estimator-fields label { font-size: 12px; }
+.estimator-fields .field { align-content: start; }
+.estimator-hint { color: var(--color-secondary); font-size: 11px; }
+.phase2-estimator :is(.estimate-price, .estimator-result .button) { white-space: normal; }
+.phase2-estimator .estimate-price { font-size: clamp(23px, 2.2vw, 32px); line-height: 1.2; margin-top: 6px; }
+
+.section-back { margin-bottom: 18px; }
+.registration-layout { display: grid; grid-template-columns: 1.45fr 1fr; grid-template-areas: "details summary"; align-items: start; gap: 18px; max-width: 1050px; }
+.registration-layout > .registration-card { grid-area: details; }
+.registration-summary { grid-area: summary; }
+.registration-card, .registration-summary { min-width: 0; padding: clamp(17px, 3vw, 28px); }
+.registration-card > p, .registration-summary > p, .registration-success p { margin-top: 10px; }
+.registration-summary h2 { margin-top: 10px; }
+.registration-summary .subscription-limits { margin-top: 12px; }
+.registration-fields { display: grid; gap: 13px; margin-top: 17px; min-width: 0; }
+.registration-fields .button, .support-form .button, .registration-success .button { width: fit-content; white-space: normal; }
+.registration-fields .content-note { margin-top: 0; }
+.registration-fields > .text-link { text-align: left; margin-top: 3px; }
+.registration-card form > .inline-state, .registration-success > .button { margin-top: 12px; }
+.registration-success svg { color: #147c6f; margin-bottom: 10px; }
+.password-control { position: relative; }
+.password-control .control { padding-right: 43px; }
+.password-control .icon-button { position: absolute; top: 2px; right: 2px; width: 38px; height: 38px; }
+.acknowledgement { display: flex; align-items: flex-start; gap: 9px; font-size: 14px; }
+.acknowledgement input { accent-color: var(--action); width: 16px; height: 16px; flex: none; margin-top: 3px; }
+.choose-plan { max-width: 630px; }
+.choose-plan .access-actions { margin-top: 15px; }
+.identity-links { display: grid; gap: 15px; margin-top: 16px; justify-items: start; }
+.sign-in-card .identity-result { margin-top: 15px; }
+.sign-in-card > .text-link { margin-top: 11px; }
+.sign-in-card .access-footnote + .access-footnote { margin-top: 8px; }
+
+.resource-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 15px; }
+.resource-card { padding: 22px; }
+.resource-card h2 { font-size: 22px; margin-top: 11px; }
+.resource-card p { color: var(--color-secondary); margin: 8px 0 13px; font-size: 14px; line-height: 1.6; }
+.support-layout { align-items: start; }
+.support-links, .support-form { display: grid; gap: 12px; margin-top: 15px; }
+.support-form textarea { resize: vertical; }
+
+@media (max-width: 890px) {
+  .public-footer .footer-top nav { justify-content: flex-start; }
+  .registration-layout { grid-template-columns: 1fr; grid-template-areas: "summary" "details"; }
+}
+@media (max-width: 600px) {
+  .subscription-grid, .top-up-grid, .resource-grid, .phase2-estimator, .form-grid { grid-template-columns: 1fr; }
+  .subscription-card > p { min-height: 0; }
+  .pricing-tools { margin-left: 0; }
+  .registration-summary .subscription-limits > div { padding-block: 5px; }
+}
+
