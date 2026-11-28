@@ -78,3 +78,7 @@ An opt-in Development flag enables only local synthetic regulator identities. Cu
 ### Phase 12 vendor permissions and release withdrawal
 
 Connector approval, publication and commercial administration each check explicit server-side grants. Commercial monitoring does not confer catalog or ledger mutations. The connector runtime and sandbox deny new operations against revoked releases. Release impact returns aggregate counts and version audit events. Configuration, vendor access and release actions use synthetic Development adapters and identities.
+
+### Phase 13 provider readiness evidence
+
+Development vendor connector grants restrict provider evidence reads, recording and review. Independent review and current version checks protect the recorded decision. The register accepts a registered documentation link and opaque document reference IDs. It does not fetch URLs or issue credentials. Recorded evidence and review decisions have no runtime activation effect.

@@ -349,3 +349,11 @@ The complete PostgreSQL suite passed 56 of 56 with zero skips. Separate developm
 The Phase 12 synthetic development scope passed verification. Implementation `c367f87` and the recovery test correction `cb2dd20` were pushed to `Development`. GitHub `main` stayed at `49b9ec4`.
 
 The release workflow is synthetic. Moving an existing tenant binding is subject to an approved mapping, accounting and source-identity cutover. Production providers require the Phase 13 verification and authorization process.
+
+## Phase 13 production provider readiness
+
+Continued on `Development` from `96ddeec`. Added a vendor register for the exact version and revision of a review-only provider. It records edition, market, official documentation, partner access, current authorization, an authorized sandbox report and capability scope. Evidence and decisions are append-only. An independent reviewer can request changes or confirm review. A change to the pinned configuration makes evidence stale, and withdrawn or expired evidence remains in history. Review has no activation effect.
+
+Migration `20261128130353_ProviderReadiness` applied in development and test. Both databases have 26 migrations and the provider evidence immutability trigger. Release, TypeScript and Vite builds passed. Three focused PostgreSQL tests passed. The desktop browser walkthrough passed after waiting for the selected connector version before filling its revocation field. Full regression is in progress.
+
+Production acceptance is externally blocked. The cloud proxy returned HTTP 403 for the six checked official documentation sources covering the MYOB, Intuit and commerce provider families. The available project records have no verified partner approval, production authorization or authorized sandbox evidence. Live adapters require verified provider-specific contracts, permitted accounts and approved results. The register is available for review preparation and production access is disabled. [Provider readiness and dependencies](docs/PROVIDER_READINESS.md)

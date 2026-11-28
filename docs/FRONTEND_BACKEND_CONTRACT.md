@@ -197,3 +197,9 @@ Connector approval requires `Connectors.Approve`. Publication, connector-wide di
 `GET /versions/{version}/impact` provides version-specific aggregate connection and accounting counts plus the version audit. `GET /api/vendor/connectors/runtime/monitor` includes effective release states, suspension counts and display labels. Client and vendor runtime entry points enforce release revocation. Historical pinned records remain accessible under their existing read permissions.
 
 The Development `/api/vendor/billing/access` endpoint lists the signed-in vendor's commercial actions. Catalog reads, term publication, operational monitoring and positive ledger adjustments each require their assigned commercial grant. [Operator workflow](VENDOR_RELEASES.md)
+
+## Phase 13 provider readiness
+
+`GET /api/vendor/connectors/production-readiness` lists review-only connector versions. Under `/api/vendor/connectors/{id}/versions/{version}/production-readiness`, `GET /` returns the status, missing evidence, history and allowed actions. `POST /evidence` appends a packet and `POST /review` appends a decision. Both require the expected evidence sequence and connector revision. Recording requires the connector edit grant. Confirming a review or requesting changes requires a different operator with the connector approval grant. The current authorization expiry and declared capabilities are checked against the packet and version. Authorized reviewers can withdraw submitted or reviewed evidence.
+
+The register reports `productionAccessEnabled=false`. The portfolio continues to use existing availability and runtime controls. [Provider readiness guide](PROVIDER_READINESS.md)

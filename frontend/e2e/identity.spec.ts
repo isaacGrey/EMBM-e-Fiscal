@@ -540,6 +540,27 @@ test.describe('PostgreSQL identity and onboarding', () => {
       await expect(governance).toContainText('Open legal holds')
       await capture(vendor, info.project.name + '-regulatory-monitoring')
       await vendor.getByRole('link', { name: 'Universal API Connector Builder' }).click()
+      const reviewToken = (await (await vendor.request.get('/api/auth/csrf')).json()).token
+      const providerName = 'Synthetic provider review ' + tag
+      const provider = await vendor.request.post('/api/vendor/connectors', {
+        data: { code: 'readiness-' + tag, adapter: 'review-only', category: 'Accounting Software', configuration: {
+          name: providerName, description: 'Synthetic provider evidence exercise', priority: 'Additional',
+          deployment: 'Configurable REST API', apiVersion: '1', documentation: ['https://example.com/phase13-review'],
+        } }, headers: { 'X-EFiscal-CSRF': reviewToken },
+      })
+      expect(provider.ok(), await provider.text()).toBeTruthy()
+      await vendor.getByRole('link', { name: 'Production integration readiness', exact: true }).click()
+      await expect(vendor.getByRole('heading', { name: 'Production integration readiness', exact: true })).toBeVisible()
+      await vendor.getByLabel('Provider version').selectOption({ label: providerName + ' · Version 1' })
+      await expect(vendor.getByRole('heading', { name: providerName, exact: true })).toBeVisible()
+      await vendor.getByLabel('Provider edition', { exact: true }).fill('Synthetic test edition')
+      await vendor.getByLabel('Two-letter market code', { exact: true }).fill('PH')
+      await vendor.getByRole('button', { name: 'Save evidence', exact: true }).click()
+      await expect(vendor.getByText('Evidence recorded.', { exact: true })).toBeVisible()
+      await expect(vendor.getByText('Production access disabled', { exact: true })).toBeVisible()
+      await expect(vendor.getByRole('region', { name: 'Provider evidence history' })).toContainText('Awaiting independent review')
+      await capture(vendor, info.project.name + '-provider-readiness')
+      await vendor.getByRole('link', { name: 'Universal API Connector Builder' }).click()
       await vendor.getByRole('link', { name: 'Create connector' }).click()
       await vendor.getByLabel('Connector code', { exact: true }).fill(tag)
       await vendor.getByLabel('Platform name', { exact: true }).fill(name)
@@ -578,10 +599,10 @@ test.describe('PostgreSQL identity and onboarding', () => {
       await expect(vendor.getByRole('button', { name: 'Resume connector', exact: true })).toBeVisible()
       await vendor.getByRole('button', { name: 'Resume connector', exact: true }).click()
       await vendor.getByLabel('Version', { exact: true }).selectOption({ label: 'Version 1 · Published' })
+      await expect(vendor.getByRole('heading', { name: 'Version 1 impact' })).toBeVisible()
       await vendor.getByLabel('Revocation reason', { exact: true }).fill('Withdraw the prior synthetic release.')
       vendor.once('dialog', dialog => void dialog.accept())
       await vendor.getByRole('button', { name: 'Revoke this version', exact: true }).click()
-      await expect(vendor.getByRole('heading', { name: 'Version 1 impact' })).toBeVisible()
       await expect(vendor.getByText('Withdraw the prior synthetic release.', { exact: false })).toBeVisible()
       await expect(vendor.getByRole('region', { name: 'Version audit history' })).toContainText('Version Revoked')
       await capture(vendor, info.project.name + '-connector-version-governance')

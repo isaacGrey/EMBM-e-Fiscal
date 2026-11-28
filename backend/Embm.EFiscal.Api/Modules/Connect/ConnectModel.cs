@@ -34,6 +34,19 @@ internal static class ConnectModel
                 .OnDelete(DeleteBehavior.Restrict);
             e.HasOne<User>().WithMany().HasForeignKey(x => x.ActorId).OnDelete(DeleteBehavior.Restrict);
         });
+        b.Entity<ProviderReadinessEvent>(e =>
+        {
+            e.ToTable("ProviderReadinessEvents", table => table.HasCheckConstraint("CK_ProviderReadinessEvent_Action", """
+                "Sequence" > 0 AND "ConnectorRevision" > 0 AND
+                (("Action" = 'EvidenceRecorded' AND "Evidence" IS NOT NULL AND "Reason" IS NULL) OR
+                 ("Action" IN ('EvidenceReviewed', 'ChangesRequested', 'Withdrawn') AND "Evidence" IS NULL AND "Reason" IS NOT NULL))
+                """));
+            e.HasKey(x => new { x.VersionId, x.Sequence });
+            e.Property(x => x.Evidence).HasColumnType("jsonb");
+            e.Property(x => x.Reason).HasMaxLength(500);
+            e.HasOne<ConnectorVersion>().WithMany().HasForeignKey(x => x.VersionId).OnDelete(DeleteBehavior.Restrict);
+            e.HasOne<User>().WithMany().HasForeignKey(x => x.ActorId).OnDelete(DeleteBehavior.Restrict);
+        });
         b.Entity<VendorConnectorGrant>(e =>
         {
             e.HasKey(x => new { x.UserId, x.Permission });

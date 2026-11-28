@@ -87,3 +87,7 @@ The Reporting module applies one active regulator grant to a scoped query over c
 ### Connector release management
 
 Published connector versions remain immutable. Release withdrawal is an append-only record that the runtime checks when resolving a connection pin. Connector-wide disablement and explicit resumption are independent of publication. The marketplace tracks forward publication, while pinned connections and accounting history retain their original version.
+
+### Production connector readiness
+
+The Development vendor register associates provider evidence and independent review with the exact connector version and revision. The append-only evidence stream provides traceability for provider onboarding. The runtime registry and tenant authorization boundaries remain separate. [Provider readiness](PROVIDER_READINESS.md)

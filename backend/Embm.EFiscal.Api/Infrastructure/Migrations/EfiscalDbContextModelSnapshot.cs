@@ -1465,6 +1465,44 @@ namespace Embm.EFiscal.Api.Infrastructure.Migrations
                     b.ToTable("MockAccountingRecords");
                 });
 
+            modelBuilder.Entity("Embm.EFiscal.Api.Modules.Connect.ProviderReadinessEvent", b =>
+                {
+                    b.Property<Guid>("VersionId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("Sequence")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Action")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<Guid>("ActorId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset>("At")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("ConnectorRevision")
+                        .HasColumnType("integer");
+
+                    b.Property<JsonElement?>("Evidence")
+                        .HasColumnType("jsonb");
+
+                    b.Property<string>("Reason")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.HasKey("VersionId", "Sequence");
+
+                    b.HasIndex("ActorId");
+
+                    b.ToTable("ProviderReadinessEvents", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_ProviderReadinessEvent_Action", "\"Sequence\" > 0 AND \"ConnectorRevision\" > 0 AND\n((\"Action\" = 'EvidenceRecorded' AND \"Evidence\" IS NOT NULL AND \"Reason\" IS NULL) OR\n (\"Action\" IN ('EvidenceReviewed', 'ChangesRequested', 'Withdrawn') AND \"Evidence\" IS NULL AND \"Reason\" IS NOT NULL))");
+                        });
+                });
+
             modelBuilder.Entity("Embm.EFiscal.Api.Modules.Connect.ReferenceMapping", b =>
                 {
                     b.Property<Guid>("Id")
@@ -6435,6 +6473,21 @@ namespace Embm.EFiscal.Api.Infrastructure.Migrations
                         .WithMany()
                         .HasForeignKey("SubscriberId", "CompanyId", "OperationId")
                         .HasPrincipalKey("SubscriberId", "CompanyId", "Id")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Embm.EFiscal.Api.Modules.Connect.ProviderReadinessEvent", b =>
+                {
+                    b.HasOne("Embm.EFiscal.Api.Modules.Identity.User", null)
+                        .WithMany()
+                        .HasForeignKey("ActorId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Embm.EFiscal.Api.Modules.Connect.ConnectorVersion", null)
+                        .WithMany()
+                        .HasForeignKey("VersionId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
                 });

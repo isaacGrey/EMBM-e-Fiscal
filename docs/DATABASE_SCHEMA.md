@@ -110,3 +110,7 @@ The additive taxpayer portability migration creates immutable export archives, r
 ## Phase 12 connector release governance
 
 `ConnectorVersionRevocations` holds the reason, timestamp and actor for a withdrawn immutable version. The version is the primary key. A PostgreSQL trigger rejects updates and deletion. Connection, mapping and accounting pins keep existing version identities. The migration preserves existing connector approval access for current explicit publishers and assigns commercial grants to audited local vendor administrator fixtures.
+
+## Phase 13 provider readiness
+
+`ProviderReadinessEvents` stores ordered immutable evidence and review events keyed by connector version and sequence. Each event records the pinned connector revision, operator and timestamp. Evidence uses JSON metadata containing document reference IDs. The foreign keys preserve review and connector identities, and a trigger rejects updates and deletion.

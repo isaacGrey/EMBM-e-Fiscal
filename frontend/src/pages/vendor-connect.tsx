@@ -7,6 +7,7 @@ import { api, errorMessage, manilaTimestamp } from '@/lib/account-api'
 import type { ConnectorConfiguration, ConnectorVersion, SpecReview } from '@/lib/connect-api'
 import { ScrollTable } from './connect'
 import { VendorRuntime } from './vendor-runtime'
+import { VendorProviderReadiness } from './vendor-provider-readiness'
 import './connect.css'
 
 const endpoint = '/vendor/connectors'
@@ -35,6 +36,7 @@ export function VendorConnect() {
   if (query.isPending || choices.isPending) return <LoadingState label="Loading Connector Builder…" />
   if (query.isError || choices.isError) return <ErrorState>{errorMessage(query.error ?? choices.error)}</ErrorState>
   if (connectorId && ['api-sandbox', 'mapping-templates', 'monitor'].includes(connectorId)) return <VendorRuntime section={connectorId} />
+  if (connectorId === 'production-readiness') return <VendorProviderReadiness />
   const options = choices.data
   if (connectorId === 'new') return query.data.canEdit
     ? <VendorEditor key="new" choices={options} canEdit canApprove={query.data.canApprove} canPublish={query.data.canPublish} />

@@ -207,6 +207,7 @@ export function VendorWorkspace() {
             <Link className="text-link" to="/portal/vendor/connectors/api-sandbox">API sandbox</Link>
             <Link className="text-link" to="/portal/vendor/connectors/mapping-templates">Mapping templates</Link>
             <Link className="text-link" to="/portal/vendor/connectors/monitor">Connector monitoring</Link>
+            <Link className="text-link" to="/portal/vendor/connectors/production-readiness">Production integration readiness</Link>
           </>}
         </nav>
         {builder ? <VendorConnect /> : birConnector ? <VendorBirConnector /> : taxpayerReview ? <VendorTaxpayerReview /> : accreditation ? <VendorAccreditationWorkspace /> : schemas ? <VendorRegulatorySchemas /> : <VendorBilling />}

@@ -19,6 +19,7 @@ internal static partial class VendorConnectEndpoints
         MapVendorMapping(group);
         MapVendorExecution(group);
         MapVendorReleaseManagement(group);
+        MapProviderReadiness(group);
         group.MapGet("", Catalog).AddEndpointFilter(Grant(View));
         group.MapGet("/choices", () => Results.Ok(new { categories = Categories, deployments = Deployments, authentication = Authentication, accounting = Accounting, commerce = Commerce }))
             .AddEndpointFilter(Grant(View));
