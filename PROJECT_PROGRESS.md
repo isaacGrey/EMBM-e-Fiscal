@@ -279,3 +279,9 @@ The versioned commerce source mapping supports the approved synthetic seller-fun
 - Externally blocked: live accounting and marketplace providers, authoritative financial treatments for unsupported source components, and safe shared consistency for mutable historical adjustment ledgers. The verified development fixtures do not authorize production posting, issuance or BIR transmission.
 
 The Release build and complete PostgreSQL suite passed all 44 tests, including six dedicated Phase 9 acceptance tests. The additive migrations are applied to both development and test databases. Both hold 17 applied migrations and EF reports no pending model changes. The durable batch test verified scheduled and post-sync runs, rate-limit cursor preservation, expired-lease recovery, and zero extra credit use. The browser regression is running with the coverage scenario waiting for the specific newly activated revision.
+
+## Phase 9F development acceptance
+
+Phase 9, 9.1 and 9.2 passed the supported development acceptance. The complete PostgreSQL suite passed 44 tests and the complete Playwright suite passed 39 cases across desktop, tablet and mobile, with zero skips. The browser coverage includes both reconciliation modes, historical exclusions and references, cutover administration, historical Credit Memo and marketplace invoice issuance, comparison and resolution, exports, and unauthorized access. The .NET Release, TypeScript and Vite builds passed. The suite also exercised the existing Phase 10 regulatory workflows. Graphify refreshed locally to 3,678 nodes and 12,962 edges.
+
+The development and test databases each have 17 applied migrations, including the three additive Phase 9 migrations, with no pending EF model changes. Production connectivity, unsupported marketplace treatments, and historical adjustment scenarios without complete provider evidence or safe consistency remain gated.
