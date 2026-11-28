@@ -344,4 +344,6 @@ Version detail shows pinned connection counts, accounting operation counts and a
 
 Migration `20261128122810_VendorReleaseGovernance` applied in development and test. Each database has 25 migrations and the release revocation trigger. EF found no pending model changes. Release, TypeScript and Vite builds passed. Four focused PostgreSQL tests and the desktop connector release walkthrough passed. The complete regression suites are running. [Vendor release guide](docs/VENDOR_RELEASES.md)
 
+The complete PostgreSQL suite passed 56 of 56. Separate development Chromium sign-ins verified the local connector reviewer and commercial observer permissions. The first full Chromium run passed 38 of 39. Its tablet recovery test filled the sign-in email field during the transition to the recovery page. The test now waits for the recovery heading before entering the email. Three consecutive tablet repeats passed, and the full rerun is in progress.
+
 The release workflow is synthetic. Moving an existing tenant binding is subject to an approved mapping, accounting and source-identity cutover. Production providers require the Phase 13 verification and authorization process.

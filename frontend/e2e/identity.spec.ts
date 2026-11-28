@@ -1108,6 +1108,7 @@ test.describe('PostgreSQL identity and onboarding', () => {
     await register(page, email, randomUUID(), 'b2c')
     await page.getByRole('button', { name: 'Sign Out' }).click()
     await page.getByRole('link', { name: 'Forgot Password' }).click()
+    await expect(page.getByRole('heading', { name: 'Forgot Password', exact: true })).toBeVisible()
     await page.getByLabel('Email address').fill(email)
     await page.getByRole('button', { name: 'Send email' }).click()
     await expect(page.getByRole('status')).toContainText('If eligible')
