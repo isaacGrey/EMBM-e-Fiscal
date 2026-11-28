@@ -335,3 +335,13 @@ The local databases had recorded the first migration before its protection SQL w
 The complete PostgreSQL suite passed 54 of 54 tests after both migrations applied, with no skips. EF found no pending model changes. The complete Chromium regression passed 39 of 39 tests across desktop, tablet and mobile with no skips. The Phase 11 synthetic development scope passed verification. Implementation and database integrity checkpoints were pushed to `Development` as `6304165` and `4d12a73`.
 
 Production regulator sign-in and record access require verified regulator authorization and approved MFA identity integration. The fixture guide records the setup and the current boundaries. [Regulator portal guide](docs/REGULATOR_PORTAL.md)
+
+## Phase 12 development vendor administration
+
+Continued on `Development` from `02d3b18`. Separate reviewer and publisher grants protect approval and release. Publishing moves the marketplace forward and preserves connector-wide disablement and deprecation. Explicit resumption restores eligible pins. A permanent release revocation suspends the targeted pins and blocks new runtime work for that version. The marketplace shows a revoked current version until a newer version is published.
+
+Version detail shows pinned connection counts, accounting operation counts and a scoped audit trail. Monitoring shows effective lifecycle states and links named releases to their details. The commercial workspace now checks independent catalog, publication, monitor and wallet adjustment grants. Its wallet results use the subscriber page shown in the UI.
+
+Migration `20261128122810_VendorReleaseGovernance` applied in development and test. Each database has 25 migrations and the release revocation trigger. EF found no pending model changes. Release, TypeScript and Vite builds passed. Four focused PostgreSQL tests and the desktop connector release walkthrough passed. The complete regression suites are running. [Vendor release guide](docs/VENDOR_RELEASES.md)
+
+The release workflow is synthetic. Moving an existing tenant binding is subject to an approved mapping, accounting and source-identity cutover. Production providers require the Phase 13 verification and authorization process.

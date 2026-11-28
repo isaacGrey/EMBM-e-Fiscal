@@ -24,13 +24,14 @@ internal static partial class VendorConnectEndpoints
         Require(name != "" && DocumentRules.Types.Contains(input.DocumentType) && FieldMapper.Directions.Contains(input.Direction),
             "Select a supported document type and direction and supply a template name.");
         var connector = await db.ConnectorVersions.AsNoTracking().Include(x => x.Connector).SingleOrDefaultAsync(x =>
-            x.Id == input.ConnectorVersionId && x.State == "Published" && !x.Connector.Disabled, ct);
+            x.Id == input.ConnectorVersionId && x.State == "Published" && !x.Connector.Disabled && x.Revocation == null, ct);
         if (connector is null || !IsMock(connector.Adapter)) return Missing();
         var rules = input.Rules ?? FieldMapper.Defaults(input.Direction);
         var errors = FieldMapper.Validate(input.Direction, rules);
         if (errors.Length > 0) return ApiSupport.Invalid("rules", errors[0]);
         await using var tx = await db.Database.BeginTransactionAsync(ct);
-        if (await Locked(db, connector.ConnectorId, ct) is not { Disabled: false }) return Missing();
+        if (await Locked(db, connector.ConnectorId, ct) is not { Disabled: false } ||
+            await db.Set<ConnectorVersionRevocation>().AnyAsync(x => x.VersionId == connector.Id, ct)) return Missing();
         var latest = await db.VendorMappingTemplates.Where(x => x.ConnectorVersionId == input.ConnectorVersionId && x.Name == name &&
             x.DocumentType == input.DocumentType && x.Direction == input.Direction).MaxAsync(x => (int?)x.Version, ct) ?? 0;
         var row = new VendorMappingTemplate { ConnectorVersionId = input.ConnectorVersionId, Name = name, DocumentType = input.DocumentType,

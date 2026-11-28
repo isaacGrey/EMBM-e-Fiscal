@@ -189,3 +189,11 @@ The adjacent `/preservation` routes record retention policy versions and scoped 
 `GET /api/bir/grants` returns the regulator's current grants. `GET /api/bir/records/{category}` takes `grantId`, `subscriberId`, `companyId`, inclusive `from` and `through` business dates, and optional `branchId`, `rdo`, `page` and `export`. Categories are `documents`, `tax-summary`, `reconciliation`, `reporting` and `audit`. Pages contain up to 50 rows. Each request resolves one active grant, intersects the filters with its authorized scope, and records the resulting read audit. Scope or permission failures return 404 to an authenticated regulator. The optional export adds a download disposition and requires separate permission.
 
 RDO matches use effective-dated assignments with branch precedence. Nationwide reads require a separate explicit grant. The production contract remains subject to verified BIR authorization and identity requirements. [Fixture guide](REGULATOR_PORTAL.md)
+
+## Phase 12 vendor release and commercial administration
+
+Connector approval requires `Connectors.Approve`. Publication, connector-wide disable/resume and version revocation require `Connectors.Publish`. Under `/api/vendor/connectors/{id}`, `POST /resume` resumes a disabled connector with a usable synthetic release and preserves deprecation. `POST /versions/{version}/revoke` records a reason and permanently blocks the published synthetic release. Publication only moves forward and retains connector-wide lifecycle state. The current revoked version remains visible in marketplace detail with unavailable authorization until a newer version is published.
+
+`GET /versions/{version}/impact` provides version-specific aggregate connection and accounting counts plus the version audit. `GET /api/vendor/connectors/runtime/monitor` includes effective release states, suspension counts and display labels. Client and vendor runtime entry points enforce release revocation. Historical pinned records remain accessible under their existing read permissions.
+
+The Development `/api/vendor/billing/access` endpoint lists the signed-in vendor's commercial actions. Catalog reads, term publication, operational monitoring and positive ledger adjustments each require their assigned commercial grant. [Operator workflow](VENDOR_RELEASES.md)

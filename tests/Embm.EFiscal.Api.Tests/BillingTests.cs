@@ -217,6 +217,8 @@ public sealed partial class IdentityTenantTests
             var vendor = NewIdentity(email);
             vendor.Kind = IdentityKind.Vendor;
             db.Users.Add(vendor);
+            db.AddRange(VendorBillingEndpoints.Grants.Select(permission =>
+                new Modules.Connect.VendorConnectorGrant { UserId = vendor.Id, Permission = permission }));
             await db.SaveChangesAsync();
         });
         using var vendorBrowser = Browser();
@@ -263,6 +265,25 @@ public sealed partial class IdentityTenantTests
         Assert.Contains((await Json(vendorBrowser, "/api/vendor/billing/monitor")).GetProperty("wallets").EnumerateArray(),
             x => x.GetProperty("subscriberId").GetGuid() == subscriber && !x.GetProperty("projectionMismatch").GetBoolean());
         Assert.Equal(14990m, (await Simulate(buyer, oldCheckout.GetProperty("id").GetGuid(), "paid")).GetProperty("amount").GetDecimal());
+    }
+
+    [PostgresFact]
+    public async Task VendorCommercialGrantsSeparateMonitoringFromFinancialChanges()
+    {
+        using var connectorReviewer = await ConnectorVendor(Modules.Connect.ConnectorRules.View, Modules.Connect.ConnectorRules.ApproveRelease);
+        using var observer = await ConnectorVendor(VendorBillingEndpoints.ViewCatalog, VendorBillingEndpoints.ViewMonitor);
+        const string path = "/api/vendor/billing";
+        await Expect(connectorReviewer.GetAsync(path + "/monitor"), HttpStatusCode.Forbidden);
+        await Expect(connectorReviewer.GetAsync(path + "/catalog"), HttpStatusCode.Forbidden);
+        var access = await Json(observer, path + "/access");
+        Assert.True(access.GetProperty("canMonitor").GetBoolean());
+        Assert.False(access.GetProperty("canAdjust").GetBoolean());
+        Assert.False(access.GetProperty("canPublish").GetBoolean());
+        await Expect(observer.GetAsync(path + "/catalog"), HttpStatusCode.OK);
+        await Expect(observer.GetAsync(path + "/monitor"), HttpStatusCode.OK);
+        await Expect(Mutate(observer, path + "/plans", new { }), HttpStatusCode.Forbidden);
+        await Expect(Mutate(observer, path + "/packages", new { }), HttpStatusCode.Forbidden);
+        await Expect(Mutate(observer, path + "/wallets/" + Guid.NewGuid() + "/adjustments", new { }), HttpStatusCode.Forbidden);
     }
 
     private async Task<HttpClient> BillingBuyer(string plan = "business")

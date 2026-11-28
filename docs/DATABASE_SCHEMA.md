@@ -106,3 +106,7 @@ The additive taxpayer portability migration creates immutable export archives, r
 ## Development regulator access
 
 `RegulatorGrants` records time-bounded synthetic identity grants with explicit company, RDO or nationwide scope, allowed record categories and optional export permission. Composite foreign keys enforce tenant-company-branch consistency. A database trigger permits revocation as the only update. `RegulatorReadAudits` preserves the grant, requesting identity, resolved parameters, page, response count, time and export indicator. Audit rows are append-only.
+
+## Phase 12 connector release governance
+
+`ConnectorVersionRevocations` holds the reason, timestamp and actor for a withdrawn immutable version. The version is the primary key. A PostgreSQL trigger rejects updates and deletion. Connection, mapping and accounting pins keep existing version identities. The migration preserves existing connector approval access for current explicit publishers and assigns commercial grants to audited local vendor administrator fixtures.

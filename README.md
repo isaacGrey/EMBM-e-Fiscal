@@ -126,3 +126,5 @@ Use local Graphify queries for cross-module discovery and direct RTK commands fo
 For the regulatory presentation, use the isolated fictional workflows in [the BIR development demonstration guide](docs/BIR_DEMONSTRATION.md). A work branch with a different applied EF history needs separate development and test databases. Keep prior database volumes and records available for recovery.
 
 Phase 11 adds an opt-in synthetic BIR read-only portal for scoped fiscal review. Use [the regulator portal fixture guide](docs/REGULATOR_PORTAL.md) to provision a local identity, issue a limited grant and verify revocation.
+
+Phase 12 Development vendor operators can use [the release administration guide](docs/VENDOR_RELEASES.md) to rehearse separate approval, publication, monitoring and version withdrawal.

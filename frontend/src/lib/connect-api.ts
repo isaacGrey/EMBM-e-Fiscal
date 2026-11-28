@@ -12,7 +12,8 @@ export type Operation = { method: string; path: string; parameters: { name: stri
 export type SpecReview = { title: string; format: string; version: string; servers: string[]; authentication: string[]; endpoints: Operation[]; warnings: string[] }
 export type ConnectorVersion = {
   id: string; connectorId: string; code: string; number: number; revision: number; category: string; adapter: string; state: string;
-  availability: string; disabled: boolean; lifecycle: 'Deprecated' | 'Retired' | null; configuration: ConnectorConfiguration; specification: SpecReview | null;
+  availability: string; effectiveAvailability: string; disabled: boolean; lifecycle: 'Deprecated' | 'Retired' | null; configuration: ConnectorConfiguration; specification: SpecReview | null;
+  revocation: { at: string; reason: string } | null;
   validation: { valid: boolean; errors: string[]; warnings: string[]; validatedAt: string } | null;
 }
 export type Connection = {

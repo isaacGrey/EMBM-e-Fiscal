@@ -83,3 +83,7 @@ Phase 10 taxpayer governance keeps read and preservation permissions separate fr
 ### Development regulator portal
 
 The Reporting module applies one active regulator grant to a scoped query over committed synthetic fiscal documents. Tax summaries and linked reconciliation, reporting and audit projections use the same fiscal scope. Each read and export saves its audit before returning the result. The local fixture commands provision and revoke grants independently of customer and vendor access. Production still requires approved identity and formal authorization.
+
+### Connector release management
+
+Published connector versions remain immutable. Release withdrawal is an append-only record that the runtime checks when resolving a connection pin. Connector-wide disablement and explicit resumption are independent of publication. The marketplace tracks forward publication, while pinned connections and accounting history retain their original version.

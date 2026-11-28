@@ -27,6 +27,15 @@ internal sealed class ConnectorVersion
     public Guid? ActorId { get; set; }
     public DateTimeOffset CreatedAt { get; set; } = DateTimeOffset.UtcNow;
     public DateTimeOffset? PublishedAt { get; set; }
+    public ConnectorVersionRevocation? Revocation { get; set; }
+}
+
+internal sealed class ConnectorVersionRevocation
+{
+    public Guid VersionId { get; init; }
+    public Guid ActorId { get; init; }
+    public required string Reason { get; init; }
+    public DateTimeOffset At { get; init; } = DateTimeOffset.UtcNow;
 }
 
 internal sealed class VendorConnectorGrant

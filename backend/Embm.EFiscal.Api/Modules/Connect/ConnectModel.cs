@@ -23,6 +23,16 @@ internal static class ConnectModel
             e.Property(x => x.Configuration).HasColumnType("jsonb");
             e.Property(x => x.Specification).HasColumnType("jsonb");
             e.Property(x => x.Validation).HasColumnType("jsonb");
+            e.Navigation(x => x.Revocation).AutoInclude();
+        });
+        b.Entity<ConnectorVersionRevocation>(e =>
+        {
+            e.ToTable("ConnectorVersionRevocations");
+            e.HasKey(x => x.VersionId);
+            e.Property(x => x.Reason).HasMaxLength(500);
+            e.HasOne<ConnectorVersion>().WithOne(x => x.Revocation).HasForeignKey<ConnectorVersionRevocation>(x => x.VersionId)
+                .OnDelete(DeleteBehavior.Restrict);
+            e.HasOne<User>().WithMany().HasForeignKey(x => x.ActorId).OnDelete(DeleteBehavior.Restrict);
         });
         b.Entity<VendorConnectorGrant>(e =>
         {

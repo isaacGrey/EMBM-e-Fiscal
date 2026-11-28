@@ -48,8 +48,9 @@ internal static class LocalCommands
             user.Kind = IdentityKind.Vendor;
             user.DevelopmentFixture = true;
             db.Users.Add(user);
-            db.Audit("LocalVendorBootstrapped", user.Id);
-            await ConnectorRules.GrantLocal(db, user.Id);
+            var profile = app.Configuration["Identity:LocalVendorProfile"] ?? "Administrator";
+            await ConnectorRules.GrantLocal(db, user.Id, profile);
+            db.Audit(profile == "Administrator" ? "LocalVendorBootstrapped" : "LocalVendorBootstrapped." + profile, user.Id);
             await db.SaveChangesAsync();
             return;
         }

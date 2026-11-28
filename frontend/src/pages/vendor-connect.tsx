@@ -1,7 +1,7 @@
 import { useState, type ComponentProps, type FormEvent } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { ArrowLeft, FileUp, Plug, Plus } from 'lucide-react'
-import { Link, useParams, useNavigate } from 'react-router-dom'
+import { Link, useParams, useNavigate, useSearchParams } from 'react-router-dom'
 import { Badge, Button, Card, ErrorState, Field, Input, LoadingState, Select } from '@/components/ui'
 import { api, errorMessage, manilaTimestamp } from '@/lib/account-api'
 import type { ConnectorConfiguration, ConnectorVersion, SpecReview } from '@/lib/connect-api'
@@ -12,8 +12,10 @@ import './connect.css'
 const endpoint = '/vendor/connectors'
 const route = '/portal/vendor/connectors'
 type Options = { categories: string[]; deployments: string[]; authentication: string[]; accounting: string[]; commerce: string[] }
-type Catalog = { items: ConnectorVersion[]; canEdit: boolean; canPublish: boolean }
+type Catalog = { items: ConnectorVersion[]; canEdit: boolean; canApprove: boolean; canPublish: boolean }
 type Detail = { versions: ConnectorVersion[]; audit: { action: string; at: string; actorId?: string }[] }
+type Impact = { connections: { status: string; count: number }[]; audit: Detail['audit']
+  sync: { unsubmitted: number; awaitingConfirmation: number; confirmed: number } }
 function Textarea(props: ComponentProps<'textarea'>) {
   return <textarea className="control connect-textarea" {...props} />
 }
@@ -35,10 +37,10 @@ export function VendorConnect() {
   if (connectorId && ['api-sandbox', 'mapping-templates', 'monitor'].includes(connectorId)) return <VendorRuntime section={connectorId} />
   const options = choices.data
   if (connectorId === 'new') return query.data.canEdit
-    ? <VendorEditor key="new" choices={options} canEdit canPublish={query.data.canPublish} />
+    ? <VendorEditor key="new" choices={options} canEdit canApprove={query.data.canApprove} canPublish={query.data.canPublish} />
     : <ErrorState>Connector editing permission is required.</ErrorState>
   if (connectorId) return <VendorDetail key={connectorId} id={connectorId} choices={options}
-    canEdit={query.data.canEdit} canPublish={query.data.canPublish} />
+    canEdit={query.data.canEdit} canApprove={query.data.canApprove} canPublish={query.data.canPublish} />
   const rows = query.data.items.filter(row => [row.configuration.name, row.code, row.category].join(' ').toLowerCase().includes(term.toLowerCase().trim()))
   return <div className="connect-stack">
     <Card className="workspace-card connect-intro"><span className="connect-mark"><Plug size={22} /></span><div>
@@ -49,24 +51,27 @@ export function VendorConnect() {
       {query.data.canEdit && <Button asChild><Link to={route + '/new'}><Plus size={16} /> Create connector</Link></Button>}</div></Card>
     <Card className="workspace-card"><ScrollTable name="Connector definitions"><thead><tr><th>Platform</th><th>Category</th><th>Latest version</th><th>State</th><th>Availability</th></tr></thead>
       <tbody>{rows.map(item => <tr key={item.connectorId}><td><Link className="text-link" to={route + '/' + item.connectorId}>{item.configuration.name}</Link></td>
-        <td>{item.category}</td><td>{item.number}</td><td>{item.state}</td><td>{item.lifecycle === 'Retired' ? item.lifecycle : item.disabled ? 'Temporarily Unavailable' : item.lifecycle ?? item.availability}</td></tr>)}</tbody>
+        <td>{item.category}</td><td>{item.number}</td><td>{item.revocation ? 'Revoked' : item.state}</td><td>{item.effectiveAvailability}</td></tr>)}</tbody>
     </ScrollTable>{!rows.length && <p>No definitions match this search.</p>}</Card>
   </div>
 }
 
-function VendorDetail({ id, choices, canEdit, canPublish }: { id: string; choices: Options; canEdit: boolean; canPublish: boolean }) {
+function VendorDetail({ id, choices, canEdit, canApprove, canPublish }: { id: string; choices: Options; canEdit: boolean; canApprove: boolean; canPublish: boolean }) {
   const query = useQuery({ queryKey: ['vendor-connect-detail', id], queryFn: () => api<Detail>(endpoint + '/' + id), retry: false })
-  const [selected, setSelected] = useState('')
+  const [params, setParams] = useSearchParams()
+  const selected = params.get('version')
+  const setSelected = (value: string) => setParams({ version: value }, { replace: true })
   if (query.isPending) return <LoadingState label="Loading connector versions…" />
   if (query.isError) return <ErrorState>{errorMessage(query.error)}</ErrorState>
   const version = query.data.versions.find(x => x.id === selected) ?? query.data.versions[0]
   return <div className="connect-stack">
     <Card className="workspace-card"><h2>{version.configuration.name}</h2>
       <Field id="connector-version" label="Version"><Select id="connector-version" value={version.id} onChange={e => setSelected(e.target.value)}>
-        {query.data.versions.map(x => <option value={x.id} key={x.id}>Version {x.number} · {x.state}</option>)}
+        {query.data.versions.map(x => <option value={x.id} key={x.id}>Version {x.number} · {x.revocation ? 'Revoked' : x.state}</option>)}
       </Select></Field></Card>
-    <VendorEditor key={version.id + ':' + version.revision} choices={choices} version={version} canEdit={canEdit} canPublish={canPublish}
+    <VendorEditor key={version.id + ':' + version.revision} choices={choices} version={version} canEdit={canEdit} canApprove={canApprove} canPublish={canPublish}
       select={setSelected} />
+    <ReleaseImpact key={version.id} version={version} />
     <Card className="workspace-card"><h3>Connector audit history</h3>{query.data.audit.length ? <ScrollTable name="Connector audit history">
       <thead><tr><th>Event</th><th>Time</th></tr></thead>
       <tbody>{query.data.audit.map((x, index) => <tr key={x.at + index}><td>{display(x.action.replace('Connectors.', ''))}</td>
@@ -75,8 +80,28 @@ function VendorDetail({ id, choices, canEdit, canPublish }: { id: string; choice
   </div>
 }
 
-function VendorEditor({ choices, version, canEdit, canPublish, select }: { choices: Options; version?: ConnectorVersion; canEdit: boolean;
-  canPublish: boolean; select?: (id: string) => void }) {
+function ReleaseImpact({ version }: { version: ConnectorVersion }) {
+  const impact = useQuery({ queryKey: ['vendor-release-impact', version.connectorId, version.id],
+    queryFn: () => api<Impact>(endpoint + '/' + version.connectorId + '/versions/' + version.id + '/impact'), retry: false })
+  return <Card className="workspace-card connect-stack"><h3>Version {version.number} impact</h3>
+    {version.revocation && <p><Badge tone="warning">Revoked</Badge> {version.revocation.reason} · {manilaTimestamp.format(new Date(version.revocation.at))}</p>}
+    {impact.isPending ? <LoadingState /> : impact.isError ? <ErrorState>{errorMessage(impact.error)}</ErrorState> : <>
+      {impact.data.connections.length ? <dl className="workspace-definitions">{impact.data.connections.map(x => <div key={x.status}><dt>{x.status} connections</dt><dd>{x.count}</dd></div>)}</dl>
+        : <p>No connections are pinned to this version.</p>}
+      <dl className="workspace-definitions"><div><dt>Unsubmitted accounting operations</dt><dd>{impact.data.sync.unsubmitted}</dd></div>
+        <div><dt>Awaiting accounting confirmation</dt><dd>{impact.data.sync.awaitingConfirmation}</dd></div>
+        <div><dt>Confirmed accounting operations</dt><dd>{impact.data.sync.confirmed}</dd></div></dl>
+      {impact.data.audit.length > 0 && <ScrollTable name="Version audit history">
+        <thead><tr><th>Version event</th><th>Time</th></tr></thead>
+        <tbody>{impact.data.audit.map((x, index) => <tr key={x.at + index}><td>{display(x.action.replace('Connectors.', ''))}</td>
+          <td>{manilaTimestamp.format(new Date(x.at))}</td></tr>)}</tbody>
+      </ScrollTable>}
+    </>}
+  </Card>
+}
+
+function VendorEditor({ choices, version, canEdit, canApprove, canPublish, select }: { choices: Options; version?: ConnectorVersion; canEdit: boolean;
+  canApprove: boolean; canPublish: boolean; select?: (id: string) => void }) {
   const [config, setConfig] = useState(version?.configuration ?? empty)
   const [code, setCode] = useState(version?.code ?? '')
   const [category, setCategory] = useState(version?.category ?? choices.categories[0])
@@ -103,7 +128,10 @@ function VendorEditor({ choices, version, canEdit, canPublish, select }: { choic
   }
   async function refresh() {
     await Promise.all([cache.invalidateQueries({ queryKey: ['vendor-connect'] }),
-      cache.invalidateQueries({ queryKey: ['vendor-connect-detail', version?.connectorId] })])
+      cache.invalidateQueries({ queryKey: ['vendor-connect-detail', version?.connectorId] }),
+      cache.invalidateQueries({ queryKey: ['vendor-release-impact', version?.connectorId] }),
+      cache.invalidateQueries({ queryKey: ['vendor-connector-monitor'] }),
+      cache.invalidateQueries({ queryKey: ['vendor-connector-runtime'] })])
   }
   async function run(action: () => Promise<void>) {
     setBusy(true); setError(''); setNotice('')
@@ -127,10 +155,10 @@ function VendorEditor({ choices, version, canEdit, canPublish, select }: { choic
     })
   }
 
-  function step(command: 'validate' | 'approve' | 'publish' | 'copy' | 'disable' | 'deprecate' | 'retire') {
+  function step(command: 'validate' | 'approve' | 'publish' | 'copy' | 'disable' | 'resume' | 'deprecate' | 'retire') {
     if (!version) return
     void run(async () => {
-      if (command === 'disable') await api(endpoint + '/' + version.connectorId + '/disable', 'POST')
+      if (command === 'disable' || command === 'resume') await api(endpoint + '/' + version.connectorId + '/' + command, 'POST')
       else if (command === 'deprecate' || command === 'retire')
         await api(endpoint + '/' + version.connectorId + '/lifecycle', 'POST', { state: command === 'deprecate' ? 'Deprecated' : 'Retired' })
       else {
@@ -138,6 +166,16 @@ function VendorEditor({ choices, version, canEdit, canPublish, select }: { choic
         select?.(result.id)
       }
       await refresh()
+    })
+  }
+  function revoke(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    const reason = new FormData(event.currentTarget).get('reason')
+    if (!window.confirm('Revoke this version and suspend connections pinned to it?')) return
+    void run(async () => {
+      await api(path + '/revoke', 'POST', { reason })
+      await refresh()
+      setNotice('Version revoked.')
     })
   }
   function upload(event: FormEvent) {
@@ -155,7 +193,8 @@ function VendorEditor({ choices, version, canEdit, canPublish, select }: { choic
   return <div className="connect-stack">
     <Link className="back-link" to={route}><ArrowLeft size={16} /> Connector definitions</Link>
     <Card className="workspace-card"><div className="connect-actions"><h3>{version ? 'Version ' + version.number : 'Create connector'}</h3>
-      {version && <Badge tone={version.state === 'Published' ? 'success' : 'neutral'}>{version.state}</Badge>}
+      {version && <Badge tone={version.revocation ? 'warning' : version.state === 'Published' ? 'success' : 'neutral'}>
+        {version.revocation ? 'Revoked' : version.state}</Badge>}
       {version?.disabled && <Badge tone="warning">Disabled</Badge>}
       {version?.lifecycle && <Badge tone="warning">{version.lifecycle}</Badge>}</div>
       <form onSubmit={save}><fieldset disabled={busy || !editable} className="connect-stack connect-fieldset">
@@ -221,15 +260,22 @@ function VendorEditor({ choices, version, canEdit, canPublish, select }: { choic
       {error && <ErrorState>{error}</ErrorState>}{notice && <p role="status">{notice}</p>}
       {version && <div className="connect-actions">
         {editable && <Button variant="light" disabled={busy} onClick={() => step('validate')}>Validate configuration</Button>}
-        {canPublish && version.state === 'Validated' && adapter !== 'review-only' && <Button disabled={busy} onClick={() => step('approve')}>Approve development version</Button>}
-        {canPublish && version.state === 'Approved' && <Button disabled={busy} onClick={() => step('publish')}>Publish development connector</Button>}
+        {canApprove && version.state === 'Validated' && adapter !== 'review-only' && <Button disabled={busy} onClick={() => step('approve')}>Approve development version</Button>}
+        {canPublish && version.state === 'Approved' && version.lifecycle !== 'Retired' && <Button disabled={busy} onClick={() => step('publish')}>Publish development connector</Button>}
         {canEdit && <Button variant="light" disabled={busy} onClick={() => step('copy')}>Create new version</Button>}
         {canPublish && version.state === 'Published' && !version.disabled && <Button variant="light" disabled={busy} onClick={() => step('disable')}>Disable connector</Button>}
+        {canPublish && version.state === 'Published' && version.disabled && version.lifecycle !== 'Retired' &&
+          <Button variant="light" disabled={busy} onClick={() => step('resume')}>Resume connector</Button>}
         {canPublish && version.state === 'Published' && !version.lifecycle && <Button variant="light" disabled={busy}
           onClick={() => step('deprecate')}>Deprecate connector</Button>}
         {canPublish && version.state === 'Published' && version.lifecycle === 'Deprecated' && <Button variant="light" disabled={busy}
           onClick={() => { if (window.confirm('Retire this connector and suspend its existing connections?')) step('retire') }}>Retire connector</Button>}
       </div>}
+      {version && canPublish && version.state === 'Published' && !version.revocation && version.adapter !== 'review-only' &&
+        <form className="connect-actions" onSubmit={revoke}>
+          <Field id="version-revocation-reason" label="Revocation reason"><Input id="version-revocation-reason" name="reason" required maxLength={500} /></Field>
+          <Button type="submit" variant="light" disabled={busy}>Revoke this version</Button>
+        </form>}
     </Card>
     {version && editable && <Card className="workspace-card"><h3>Import API specification</h3>
       <p>OpenAPI 3.x, Swagger 2.0, Postman 2.x and eFiscal v1. Maximum 512 KiB.</p>

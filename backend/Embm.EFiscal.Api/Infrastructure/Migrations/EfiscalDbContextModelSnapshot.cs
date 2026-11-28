@@ -1034,6 +1034,29 @@ namespace Embm.EFiscal.Api.Infrastructure.Migrations
                     b.ToTable("ConnectorVersions");
                 });
 
+            modelBuilder.Entity("Embm.EFiscal.Api.Modules.Connect.ConnectorVersionRevocation", b =>
+                {
+                    b.Property<Guid>("VersionId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("ActorId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset>("At")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Reason")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.HasKey("VersionId");
+
+                    b.HasIndex("ActorId");
+
+                    b.ToTable("ConnectorVersionRevocations", (string)null);
+                });
+
             modelBuilder.Entity("Embm.EFiscal.Api.Modules.Connect.DesktopAgentRegistration", b =>
                 {
                     b.Property<Guid>("Id")
@@ -6293,6 +6316,21 @@ namespace Embm.EFiscal.Api.Infrastructure.Migrations
                     b.Navigation("Connector");
                 });
 
+            modelBuilder.Entity("Embm.EFiscal.Api.Modules.Connect.ConnectorVersionRevocation", b =>
+                {
+                    b.HasOne("Embm.EFiscal.Api.Modules.Identity.User", null)
+                        .WithMany()
+                        .HasForeignKey("ActorId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Embm.EFiscal.Api.Modules.Connect.ConnectorVersion", null)
+                        .WithOne("Revocation")
+                        .HasForeignKey("Embm.EFiscal.Api.Modules.Connect.ConnectorVersionRevocation", "VersionId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
             modelBuilder.Entity("Embm.EFiscal.Api.Modules.Connect.DesktopAgentRegistration", b =>
                 {
                     b.HasOne("Embm.EFiscal.Api.Modules.Tenants.Company", null)
@@ -7289,6 +7327,11 @@ namespace Embm.EFiscal.Api.Infrastructure.Migrations
                 {
                     b.Navigation("Payment")
                         .IsRequired();
+                });
+
+            modelBuilder.Entity("Embm.EFiscal.Api.Modules.Connect.ConnectorVersion", b =>
+                {
+                    b.Navigation("Revocation");
                 });
 
             modelBuilder.Entity("Embm.EFiscal.Api.Modules.Documents.FiscalDocument", b =>

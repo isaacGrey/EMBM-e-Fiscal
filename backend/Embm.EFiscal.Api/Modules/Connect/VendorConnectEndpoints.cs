@@ -7,6 +7,7 @@ namespace Embm.EFiscal.Api.Modules.Connect;
 
 internal sealed record ConnectorRevision(int ExpectedRevision);
 internal sealed record ConnectorLifecycle(string State);
+internal sealed record RevokeConnectorVersion(string Reason);
 
 internal static partial class VendorConnectEndpoints
 {
@@ -17,6 +18,7 @@ internal static partial class VendorConnectEndpoints
             .AddEndpointFilter(ApiSupport.Protect).WithTags("Universal API Connector Builder");
         MapVendorMapping(group);
         MapVendorExecution(group);
+        MapVendorReleaseManagement(group);
         group.MapGet("", Catalog).AddEndpointFilter(Grant(View));
         group.MapGet("/choices", () => Results.Ok(new { categories = Categories, deployments = Deployments, authentication = Authentication, accounting = Accounting, commerce = Commerce }))
             .AddEndpointFilter(Grant(View));
@@ -26,7 +28,7 @@ internal static partial class VendorConnectEndpoints
         group.MapPost("/{id:guid}/versions/{version:guid}/import", Import).AddEndpointFilter(Grant(Edit))
             .DisableAntiforgery().RequireRateLimiting("connector-operation").WithMetadata(new Microsoft.AspNetCore.Mvc.RequestSizeLimitAttribute(SpecImport.MaxBytes + 16_384));
         group.MapPost("/{id:guid}/versions/{version:guid}/validate", Validate).AddEndpointFilter(Grant(Edit));
-        group.MapPost("/{id:guid}/versions/{version:guid}/approve", Approve).AddEndpointFilter(Grant(Publish));
+        group.MapPost("/{id:guid}/versions/{version:guid}/approve", Approve).AddEndpointFilter(Grant(ApproveRelease));
         group.MapPost("/{id:guid}/versions/{version:guid}/publish", PublishVersion).AddEndpointFilter(Grant(Publish));
         group.MapPost("/{id:guid}/versions/{version:guid}/copy", Copy).AddEndpointFilter(Grant(Edit));
         group.MapPost("/{id:guid}/disable", Disable).AddEndpointFilter(Grant(Publish));
@@ -50,7 +52,8 @@ internal static partial class VendorConnectEndpoints
             .Where(x => !db.ConnectorVersions.Any(v => v.ConnectorId == x.ConnectorId && v.Number > x.Number))
             .OrderBy(x => x.Connector.Code).Take(250).ToArrayAsync(ct);
         var grants = await db.VendorConnectorGrants.Where(x => x.UserId == http.UserId()).Select(x => x.Permission).ToArrayAsync(ct);
-        return Results.Ok(new { items = rows.Select(x => Present(x, false)), canEdit = grants.Contains(Edit), canPublish = grants.Contains(Publish) });
+        return Results.Ok(new { items = rows.Select(x => Present(x, false)), canEdit = grants.Contains(Edit),
+            canApprove = grants.Contains(ApproveRelease), canPublish = grants.Contains(Publish) });
     }
 
     private static async Task<IResult> Detail(Guid id, EfiscalDbContext db, CancellationToken ct)
@@ -73,6 +76,7 @@ internal static partial class VendorConnectEndpoints
         var version = new ConnectorVersion { Connector = connector, ConnectorId = connector.Id, Number = 1, ActorId = http.UserId(),
             Adapter = input.Adapter, Category = input.Category, Configuration = Freeze(config) };
         db.ConnectorVersions.Add(version);
+        db.Audit("Connectors.Created", http.UserId(), target: version.Id);
         await Complete(db, http, "Created", connector.Id, tx, ct);
         return Results.Created("/api/vendor/connectors/" + connector.Id, Present(version, true));
     }
@@ -131,18 +135,25 @@ internal static partial class VendorConnectEndpoints
             return null;
         }, ct);
 
-    private static Task<IResult> PublishVersion(Guid id, Guid version, ConnectorRevision input, HttpContext http, EfiscalDbContext db, CancellationToken ct) =>
-        Change(db, http, id, version, input.ExpectedRevision, "DevelopmentPublished", (v, connector) =>
-        {
-            if (v.State != "Approved" || !IsMock(v.Adapter) || connector.Lifecycle == "Retired")
-                return Conflict("Development publication requires an approved mock and an active connector definition.");
-            v.State = "Published";
-            v.Availability = "Development Verified";
-            v.PublishedAt = DateTimeOffset.UtcNow;
-            connector.Disabled = false;
-            connector.Lifecycle = null;
-            return null;
-        }, ct);
+    private static async Task<IResult> PublishVersion(Guid id, Guid version, ConnectorRevision input, HttpContext http, EfiscalDbContext db, CancellationToken ct)
+    {
+        await using var tx = await db.Database.BeginTransactionAsync(ct);
+        var connector = await Locked(db, id, ct);
+        var release = await db.ConnectorVersions.FindAsync([version], ct);
+        if (connector is null || release?.ConnectorId != id) return Missing();
+        if (release.Revision != input.ExpectedRevision) return Conflict("Reload this version before making another change.");
+        if (release.State != "Approved" || !IsMock(release.Adapter) || connector.Lifecycle == "Retired")
+            return Conflict("Development publication requires an approved mock and a connector that is not retired.");
+        if (await db.ConnectorVersions.AnyAsync(x => x.ConnectorId == id && x.State == "Published" && x.Number > release.Number, ct))
+            return Conflict("Create and approve a new version to publish after a newer release.");
+        release.State = "Published";
+        release.Availability = "Development Verified";
+        release.PublishedAt = DateTimeOffset.UtcNow;
+        release.Revision++;
+        db.Audit("Connectors.DevelopmentPublished", http.UserId(), target: release.Id);
+        await Complete(db, http, "DevelopmentPublished", id, tx, ct);
+        return Results.Ok(Present(release, true));
+    }
 
     private static async Task<IResult> Copy(Guid id, Guid version, HttpContext http, EfiscalDbContext db, CancellationToken ct)
     {
@@ -154,6 +165,7 @@ internal static partial class VendorConnectEndpoints
         var copy = new ConnectorVersion { Connector = connector, ConnectorId = id, Number = number + 1, Adapter = existing.Adapter,
             Category = existing.Category, Configuration = existing.Configuration, Specification = existing.Specification, ActorId = http.UserId() };
         db.Add(copy);
+        db.Audit("Connectors.VersionCreated", http.UserId(), target: copy.Id);
         await Complete(db, http, "VersionCreated", id, tx, ct);
         return Results.Ok(Present(copy, true));
     }
@@ -192,6 +204,7 @@ internal static partial class VendorConnectEndpoints
         if (version.Revision != expected) return Conflict("Reload this version before making another change.");
         if (update(version, connector) is { } error) return error;
         version.Revision++;
+        db.Audit("Connectors." + action, http.UserId(), target: version.Id);
         await Complete(db, http, action, id, tx, ct);
         return Results.Ok(Present(version, true));
     }
@@ -217,6 +230,8 @@ internal static partial class VendorConnectEndpoints
     {
         version.Id, version.ConnectorId, version.Connector.Code, version.Connector.Disabled, version.Connector.Lifecycle, version.Number, version.Revision, version.Category,
         version.Adapter, version.State, version.Availability, version.Configuration, version.CreatedAt, version.PublishedAt,
+        effectiveAvailability = Availability(version),
+        revocation = version.Revocation is { } revoked ? new { revoked.At, revoked.Reason, revoked.ActorId } : null,
         specification = detail ? version.Specification : null, validation = detail ? version.Validation : null
     };
 }

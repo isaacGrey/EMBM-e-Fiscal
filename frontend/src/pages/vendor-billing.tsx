@@ -11,6 +11,7 @@ type PlanVersion = Version & { description: string; monthlyPrice: number; annual
   renewalAllowed: boolean; autoTopUpAllowed: boolean; graceDays: number }
 type PackageVersion = Version & { credits: number; price: number; validityDays: number | null; eligiblePlans: string[] }
 type Catalog = { plans: PlanVersion[]; packages: PackageVersion[] }
+type Access = { canViewCatalog: boolean; canPublish: boolean; canMonitor: boolean; canAdjust: boolean }
 type Monitor = {
   total: number; subscriptions: { subscriberId: string; name: string; plan: string; status: string; periodEnd: string }[]
   payments: { id: string; purpose: string; status: string; amount: number; providerPaymentId: string; failureReason: string | null }[]
@@ -25,20 +26,25 @@ const date = (value: string) => manilaTimestamp.format(new Date(value))
 const catalogKey = ['vendor-commercial', 'catalog']
 
 export function VendorBilling() {
-  const catalog = useQuery({ queryKey: catalogKey, queryFn: () => api<Catalog>('/vendor/billing/catalog'), retry: false })
+  const access = useQuery({ queryKey: ['vendor-commercial', 'access'], queryFn: () => api<Access>('/vendor/billing/access'), retry: false })
+  const catalog = useQuery({ queryKey: catalogKey, queryFn: () => api<Catalog>('/vendor/billing/catalog'), retry: false,
+    enabled: !!access.data?.canViewCatalog })
   const [page, setPage] = useState(1)
   const monitor = useQuery({ queryKey: ['vendor-commercial', 'monitor', page],
-    queryFn: () => api<Monitor>('/vendor/billing/monitor?page=' + page), retry: false })
+    queryFn: () => api<Monitor>('/vendor/billing/monitor?page=' + page), retry: false, enabled: !!access.data?.canMonitor })
+  if (access.isPending) return <LoadingState />
+  if (access.isError) return <ErrorState>{errorMessage(access.error)}</ErrorState>
+  if (!access.data.canViewCatalog && !access.data.canMonitor) return <p>Commercial administration requires an assigned billing grant.</p>
   return <section className="workspace-stack vendor-commercial" aria-label="Commercial management">
-    {catalog.isPending ? <LoadingState /> : catalog.isError ? <ErrorState>{errorMessage(catalog.error)}</ErrorState> : <>
+    {access.data.canViewCatalog && (catalog.isPending ? <LoadingState /> : catalog.isError ? <ErrorState>{errorMessage(catalog.error)}</ErrorState> : <>
       <Card className="workspace-card billing-card"><h2>Plan and credit package versions</h2>
         <VersionTable items={catalog.data.plans} />
         <VersionTable items={catalog.data.packages} />
       </Card>
-      <VersionForm kind="plans" versions={catalog.data.plans} />
-      <VersionForm kind="packages" versions={catalog.data.packages} />
-    </>}
-    <Card className="workspace-card billing-card"><h2>Commercial activity</h2>
+      {access.data.canPublish && <><VersionForm kind="plans" versions={catalog.data.plans} />
+        <VersionForm kind="packages" versions={catalog.data.packages} /></>}
+    </>)}
+    {access.data.canMonitor && <Card className="workspace-card billing-card"><h2>Commercial activity</h2>
       {monitor.isPending ? <LoadingState /> : monitor.isError ? <ErrorState>{errorMessage(monitor.error)}</ErrorState> : <>
         <h3>Subscriber subscriptions and wallets</h3>
         <div className="billing-table" role="region" aria-label="Subscriber subscriptions and wallets" tabIndex={0}><Table>
@@ -58,8 +64,8 @@ export function VendorBilling() {
           <span>Page {page}</span><Button variant="light" disabled={page * 25 >= monitor.data.total} onClick={() => setPage(page + 1)}>Next page</Button>
         </div>}
       </>}
-    </Card>
-    {monitor.data && <WalletAdjustmentForm subscribers={monitor.data.subscriptions} />}
+    </Card>}
+    {access.data.canMonitor && access.data.canAdjust && monitor.data && <WalletAdjustmentForm subscribers={monitor.data.subscriptions} />}
   </section>
 }
 function WalletAdjustmentForm({ subscribers }: { subscribers: Monitor['subscriptions'] }) {

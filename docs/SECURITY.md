@@ -74,3 +74,7 @@ Existing document and reporting access still requires a current company assignme
 ### Development regulator access
 
 An opt-in Development flag enables only local synthetic regulator identities. Customer and vendor sessions cannot use the regulator routes. The read boundary checks current grant ownership, validity, category and export permission, and applies subscriber, company, branch and effective RDO restrictions before projecting fiscal records. The record response is private and uncached. PostgreSQL preserves each read and export audit and accepts only revocation updates to grants. Production regulator authentication and the records API are disabled.
+
+### Phase 12 vendor permissions and release withdrawal
+
+Connector approval, publication and commercial administration each check explicit server-side grants. Commercial monitoring does not confer catalog or ledger mutations. The connector runtime and sandbox deny new operations against revoked releases. Release impact returns aggregate counts and version audit events. Configuration, vendor access and release actions use synthetic Development adapters and identities.

@@ -1,5 +1,6 @@
 import { useState, type FormEvent } from 'react'
 import { useQuery } from '@tanstack/react-query'
+import { Link } from 'react-router-dom'
 import { Badge, Button, Card, ErrorState, Field, Input, LoadingState, Select } from '@/components/ui'
 import { api, errorMessage } from '@/lib/account-api'
 import type { ConnectorConfiguration, SpecReview } from '@/lib/connect-api'
@@ -12,7 +13,8 @@ type Policy = { id: string; connectorVersionId: string; capability: string; meth
 type Runtime = { versions: { id: string; number: number; configuration: ConnectorConfiguration; specification?: SpecReview }[];
   policies: Policy[]; scenarios: string[]; sandbox: string }
 type Result = { id: string; request: unknown; result: { status: string; httpStatus: number | null; durationMs: number; remaining: number | null; retryAfter: number | null; response: unknown } }
-type Monitor = { availability: { state: string; count: number }[]; connections: { status: string; connectorVersionId: string; count: number }[];
+type Monitor = { releases: { id: string; connectorId: string; name: string; number: number }[];
+  availability: { state: string; count: number }[]; connections: { status: string; connectorVersionId: string; count: number }[];
   jobs: { state: string; count: number }[]; failures: { category: string; count: number }[];
   mappingFailures: number; rateLimitEvents: number; latestAttempt?: string;
   reconciliationJobs: { state: string; count: number }[]; reconciliationFailures: { category: string; count: number }[];
@@ -157,9 +159,9 @@ function VendorMonitoring() {
   if (stats.isPending) return <LoadingState label="Loading operational metrics…" />
   if (stats.isError) return <ErrorState>{errorMessage(stats.error)}</ErrorState>
   const value = stats.data
+  const releases = new Map(value.releases.map(item => [item.id, item]))
   const sections = [
     ['Connector availability', value.availability.map(x => [x.state, x.count] as const)],
-    ['Connection health by version', value.connections.map(x => [x.status + ' · ' + x.connectorVersionId, x.count] as const)],
     ['Synchronization queue', value.jobs.map(x => [pretty(x.state), x.count] as const)],
     ['Failure categories', value.failures.map(x => [pretty(x.category), x.count] as const)],
     ['Reconciliation queue', value.reconciliationJobs.map(x => [pretty(x.state), x.count] as const)],
@@ -172,6 +174,15 @@ function VendorMonitoring() {
       <div><dt>Last completed accounting attempt</dt><dd>{value.latestAttempt ? new Date(value.latestAttempt).toLocaleString() : '—'}</dd></div>
       <div><dt>Last completed reconciliation job</dt><dd>{value.latestReconciliationCompletion ? new Date(value.latestReconciliationCompletion).toLocaleString() : '—'}</dd></div>
       <div><dt>Coverage versions</dt><dd>{value.coverageVersions}</dd></div><div><dt>Stale verifications</dt><dd>{value.staleVerifications}</dd></div></dl></Card>
+    <Card className="workspace-card"><h3>Connection health by version</h3>
+      {value.connections.length ? <ScrollTable name="Connection health by version"><thead><tr><th>Connector release</th><th>Status</th><th>Connections</th></tr></thead>
+        <tbody>{value.connections.map(row => {
+          const release = releases.get(row.connectorVersionId)
+          return <tr key={row.connectorVersionId + ':' + row.status}><td>{release
+            ? <Link className="text-link" to={'/portal/vendor/connectors/' + release.connectorId + '?version=' + release.id}>{release.name} · v{release.number}</Link>
+            : row.connectorVersionId}</td><td>{row.status}</td><td>{row.count}</td></tr>
+        })}</tbody></ScrollTable> : <p>No connections have been recorded.</p>}
+    </Card>
     <div className="connect-grid">{sections.map(([title, entries]) => <Card className="workspace-card" key={title}><h3>{title}</h3>
       <ul>{entries.map(([label, count]) => <li key={label}>{label} · {count}</li>)}</ul></Card>)}</div></div>
 }

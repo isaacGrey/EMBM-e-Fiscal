@@ -22,7 +22,7 @@ internal static partial class VendorConnectEndpoints
     private static async Task<IResult> RuntimeOptions(EfiscalDbContext db, CancellationToken ct)
     {
         var versions = await db.ConnectorVersions.AsNoTracking().Include(x => x.Connector).Where(x => x.State == "Published" &&
-            !x.Connector.Disabled && x.Adapter == "mock-accounting").OrderBy(x => x.Connector.Code).ThenByDescending(x => x.Number).Take(100).ToArrayAsync(ct);
+            !x.Connector.Disabled && x.Revocation == null && x.Adapter == "mock-accounting").OrderBy(x => x.Connector.Code).ThenByDescending(x => x.Number).Take(100).ToArrayAsync(ct);
         var ids = versions.Select(x => x.Id).ToArray();
         var policies = await db.ExecutionPolicies.AsNoTracking().Where(x => ids.Contains(x.ConnectorVersionId)).OrderBy(x => x.Path).Take(200).ToArrayAsync(ct);
         return Results.Ok(new { versions = versions.Select(v => new { v.Id, v.Number, configuration = Read(v), specification = v.Specification }),
@@ -32,7 +32,7 @@ internal static partial class VendorConnectEndpoints
     private static async Task<IResult> ApprovePolicy(ApproveOperation input, EfiscalDbContext db, HttpContext http, CancellationToken ct)
     {
         var version = await db.ConnectorVersions.AsNoTracking().Include(x => x.Connector).SingleOrDefaultAsync(x => x.Id == input.ConnectorVersionId &&
-            x.State == "Published" && !x.Connector.Disabled && x.Adapter == "mock-accounting", ct);
+            x.State == "Published" && !x.Connector.Disabled && x.Revocation == null && x.Adapter == "mock-accounting", ct);
         if (version is null) return Missing();
         var config = Read(version);
         Require(ControlledExecution.Auth.Contains(input.Authentication) && config.Capabilities.Any(x => x.Code == input.Capability && x.Verification == "Development Verified")
@@ -46,7 +46,8 @@ internal static partial class VendorConnectEndpoints
             Origin = ControlledExecution.Origin, Authentication = input.Authentication, TimeoutMs = input.TimeoutMs, PageLimit = input.PageLimit,
             RequestSchema = operation!.Request, ResponseSchema = operation.Response, ApprovedBy = http.UserId() };
         await using var tx = await db.Database.BeginTransactionAsync(ct);
-        if (await Locked(db, version.ConnectorId, ct) is not { Disabled: false }) return Missing();
+        if (await Locked(db, version.ConnectorId, ct) is not { Disabled: false } ||
+            await db.Set<ConnectorVersionRevocation>().AnyAsync(x => x.VersionId == version.Id, ct)) return Missing();
         if (await db.ExecutionPolicies.AnyAsync(x => x.ConnectorVersionId == version.Id && x.Capability == input.Capability &&
             x.Method == input.Method && x.Path == input.Path, ct)) return Conflict("This operation is already approved.");
         db.ExecutionPolicies.Add(policy);
@@ -60,7 +61,7 @@ internal static partial class VendorConnectEndpoints
         var operation = await db.ExecutionPolicies.AsNoTracking().SingleOrDefaultAsync(x => x.Id == input.PolicyId, ct);
         if (operation is null) return Missing();
         var version = await db.ConnectorVersions.AsNoTracking().Include(x => x.Connector).SingleAsync(x => x.Id == operation.ConnectorVersionId, ct);
-        if (version.State != "Published" || version.Connector.Disabled || version.Adapter != "mock-accounting" ||
+        if (!Operational(version) || version.Adapter != "mock-accounting" ||
             !Read(version).Capabilities.Any(x => x.Code == operation.Capability && x.Verification == "Development Verified")) return Missing();
         var scenario = input.Scenario ?? "Normal";
         Require(ControlledExecution.Scenarios.Contains(scenario), "Use an approved synthetic response status.");
@@ -78,28 +79,37 @@ internal static partial class VendorConnectEndpoints
         return Results.Ok(new { id, request = ControlledExecution.Preview(operation, id), result, transformedFields = result.Response });
     }
 
-    private static async Task<IResult> RuntimeMonitor(EfiscalDbContext db, CancellationToken ct) => Results.Ok(new
+    private static async Task<IResult> RuntimeMonitor(EfiscalDbContext db, CancellationToken ct)
     {
-        availability = await db.ConnectorVersions.AsNoTracking().Where(x => x.State == "Published").GroupBy(x => x.Availability)
-            .Select(x => new { state = x.Key, count = x.Count() }).ToArrayAsync(ct),
-        connections = await db.ExternalConnections.AsNoTracking().GroupBy(x => new { x.Status, x.ConnectorVersionId })
-            .Select(x => new { x.Key.Status, x.Key.ConnectorVersionId, count = x.Count() }).ToArrayAsync(ct),
-        jobs = await db.DocumentOutboxMessages.AsNoTracking().Where(x => x.Kind == "Accounting").GroupBy(x => x.State)
-            .Select(x => new { state = x.Key, count = x.Count() }).ToArrayAsync(ct),
-        failures = await db.SyncAttempts.AsNoTracking().Where(x => x.Category != null).GroupBy(x => x.Category)
-            .Select(x => new { category = x.Key, count = x.Count() }).ToArrayAsync(ct),
-        mappingFailures = await db.MappingVersions.CountAsync(x => !x.Validated, ct),
-        rateLimitEvents = await db.ConnectorTestResults.CountAsync(x => x.Status == "RateLimited", ct),
-        latestAttempt = await db.SyncAttempts.MaxAsync(x => (DateTimeOffset?)x.CompletedAt, ct),
-        reconciliationJobs = await db.ReconciliationJobs.AsNoTracking().GroupBy(x => x.State)
-            .Select(x => new { state = x.Key, count = x.Count() }).ToArrayAsync(ct),
-        reconciliationFailures = await db.ReconciliationJobs.AsNoTracking().Where(x => x.Failure != null).GroupBy(x => x.Failure)
-            .Select(x => new { category = x.Key, count = x.Count() }).ToArrayAsync(ct),
-        coverageVersions = await db.CoverageRevisions.CountAsync(ct),
-        reconciliationFindings = await db.ReconciliationFindings.AsNoTracking().GroupBy(x => x.Category)
-            .Select(x => new { category = x.Key, count = x.Count() }).ToArrayAsync(ct),
-        staleVerifications = await db.ReconciliationChecks.CountAsync(x => x.FreshUntil < DateTimeOffset.UtcNow && x.Coverage == "Eligible" && x.Retrieval == "Complete", ct),
-        latestReconciliationCompletion = await db.ReconciliationJobs.Where(x => x.State == "Completed").MaxAsync(x => (DateTimeOffset?)x.CompletedAt, ct)
-    });
+        var releases = await db.ConnectorVersions.AsNoTracking().Include(x => x.Connector).Where(x => x.State == "Published")
+            .OrderByDescending(x => x.PublishedAt).ThenBy(x => x.Id).Take(250).ToArrayAsync(ct);
+        return Results.Ok(new
+        {
+            releases = releases.Select(x => new { x.Id, x.ConnectorId, x.Connector.Code, x.Number, name = Read(x).Name }),
+            availability = await db.ConnectorVersions.AsNoTracking().Where(x => x.State == "Published")
+                .GroupBy(x => x.Connector.Lifecycle == "Retired" ? "Retired" : x.Revocation != null ? "Revoked" :
+                    x.Connector.Disabled ? "Temporarily Unavailable" : x.Connector.Lifecycle ?? x.Availability)
+                .Select(x => new { state = x.Key, count = x.Count() }).OrderBy(x => x.state).ToArrayAsync(ct),
+            connections = await db.ExternalConnections.AsNoTracking().GroupBy(x => new { x.ConnectorVersionId,
+                    Status = x.Status != "Disconnected" && (x.Version.Connector.Disabled || x.Version.Revocation != null) ? "Suspended" : x.Status })
+                .Select(x => new { x.Key.Status, x.Key.ConnectorVersionId, count = x.Count() }).ToArrayAsync(ct),
+            jobs = await db.DocumentOutboxMessages.AsNoTracking().Where(x => x.Kind == "Accounting").GroupBy(x => x.State)
+                .Select(x => new { state = x.Key, count = x.Count() }).ToArrayAsync(ct),
+            failures = await db.SyncAttempts.AsNoTracking().Where(x => x.Category != null).GroupBy(x => x.Category)
+                .Select(x => new { category = x.Key, count = x.Count() }).ToArrayAsync(ct),
+            mappingFailures = await db.MappingVersions.CountAsync(x => !x.Validated, ct),
+            rateLimitEvents = await db.ConnectorTestResults.CountAsync(x => x.Status == "RateLimited", ct),
+            latestAttempt = await db.SyncAttempts.MaxAsync(x => (DateTimeOffset?)x.CompletedAt, ct),
+            reconciliationJobs = await db.ReconciliationJobs.AsNoTracking().GroupBy(x => x.State)
+                .Select(x => new { state = x.Key, count = x.Count() }).ToArrayAsync(ct),
+            reconciliationFailures = await db.ReconciliationJobs.AsNoTracking().Where(x => x.Failure != null).GroupBy(x => x.Failure)
+                .Select(x => new { category = x.Key, count = x.Count() }).ToArrayAsync(ct),
+            coverageVersions = await db.CoverageRevisions.CountAsync(ct),
+            reconciliationFindings = await db.ReconciliationFindings.AsNoTracking().GroupBy(x => x.Category)
+                .Select(x => new { category = x.Key, count = x.Count() }).ToArrayAsync(ct),
+            staleVerifications = await db.ReconciliationChecks.CountAsync(x => x.FreshUntil < DateTimeOffset.UtcNow && x.Coverage == "Eligible" && x.Retrieval == "Complete", ct),
+            latestReconciliationCompletion = await db.ReconciliationJobs.Where(x => x.State == "Completed").MaxAsync(x => (DateTimeOffset?)x.CompletedAt, ct)
+        });
+    }
 }
 

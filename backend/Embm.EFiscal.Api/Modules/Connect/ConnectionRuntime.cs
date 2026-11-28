@@ -33,7 +33,7 @@ internal sealed class ConnectionRuntime(EfiscalDbContext db, DevelopmentAdapters
 
     public async Task<bool> Allows(TenantGrant tenant, ConnectorVersion version, PlanVersion? plan, CancellationToken ct)
     {
-        if (!tenant.Subscriber.DevelopmentFixture || version.Connector.Disabled || version.State != "Published" || version.Availability != "Development Verified" ||
+        if (!tenant.Subscriber.DevelopmentFixture || !Operational(version) || version.Availability != "Development Verified" ||
             adapters.Get(version.Adapter) is null || plan is null || plan.ConnectorLimit <= 0) return false;
         var category = version.Category == "Accounting Software" ? "Accounting" : "Commerce";
         if (!plan.ConnectorCategories.Contains(category)) return false;
@@ -81,7 +81,7 @@ internal sealed class ConnectionRuntime(EfiscalDbContext db, DevelopmentAdapters
     {
         var link = await Scoped(subscriber, company).AsNoTracking().Include(x => x.Version).ThenInclude(x => x.Connector)
             .SingleOrDefaultAsync(x => x.Id == connection && x.Status == "Connected" && x.Authorization == "Authorized", ct);
-        if (link is null || link.Version.Connector.Disabled || link.Version.State != "Published" || adapters.Get(link.Version.Adapter) is not { } adapter ||
+        if (link is null || !Operational(link.Version) || adapters.Get(link.Version.Adapter) is not { } adapter ||
             !capabilities.All(x => Capable(link.Version, adapter, x)) || await Proof(link, ct) is null ||
             await Plan(subscriber, ct) is not { } plan || !plan.ConnectorCategories.Contains(link.ResourceType == "Store" ? "Commerce" : "Accounting") ||
             !await db.Subscribers.AnyAsync(x => x.Id == subscriber && x.DevelopmentFixture, ct)) return null;

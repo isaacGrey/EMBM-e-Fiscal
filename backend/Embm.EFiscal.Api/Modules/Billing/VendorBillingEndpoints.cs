@@ -14,14 +14,37 @@ internal record WalletAdjustment(int Quantity, string Reference, string Reason);
 
 internal static class VendorBillingEndpoints
 {
+    internal const string ViewCatalog = "Billing.Catalog.View";
+    internal const string PublishCatalog = "Billing.Catalog.Publish";
+    internal const string ViewMonitor = "Billing.Monitor.View";
+    internal const string AdjustCredits = "Billing.Credits.Adjust";
+    internal static readonly string[] Grants = [ViewCatalog, PublishCatalog, ViewMonitor, AdjustCredits];
+
     public static void MapVendorBilling(this WebApplication app)
     {
         var vendor = app.MapGroup("/api/vendor/billing").RequireAuthorization("vendor").AddEndpointFilter(ApiSupport.Protect);
-        vendor.MapGet("/catalog", Catalog);
-        vendor.MapPost("/plans", Plan);
-        vendor.MapPost("/packages", Package);
-        vendor.MapGet("/monitor", Monitor);
-        vendor.MapPost("/wallets/{subscriber:guid}/adjustments", Adjust);
+        vendor.MapGet("/access", Access);
+        vendor.MapGet("/catalog", Catalog).AddEndpointFilter(Grant(ViewCatalog));
+        vendor.MapPost("/plans", Plan).AddEndpointFilter(Grant(PublishCatalog));
+        vendor.MapPost("/packages", Package).AddEndpointFilter(Grant(PublishCatalog));
+        vendor.MapGet("/monitor", Monitor).AddEndpointFilter(Grant(ViewMonitor));
+        vendor.MapPost("/wallets/{subscriber:guid}/adjustments", Adjust).AddEndpointFilter(Grant(AdjustCredits));
+    }
+
+    private static Func<EndpointFilterInvocationContext, EndpointFilterDelegate, ValueTask<object?>> Grant(string permission) => async (context, next) =>
+    {
+        var http = context.HttpContext;
+        var db = http.RequestServices.GetRequiredService<EfiscalDbContext>();
+        return await db.VendorConnectorGrants.AnyAsync(x => x.UserId == http.UserId() && x.Permission == permission, http.RequestAborted)
+            ? await next(context) : ApiSupport.Problem(403, "Commercial administration permission is required.");
+    };
+
+    private static async Task<IResult> Access(HttpContext http, EfiscalDbContext db, CancellationToken ct)
+    {
+        var permissions = await db.VendorConnectorGrants.AsNoTracking().Where(x => x.UserId == http.UserId() && Grants.Contains(x.Permission))
+            .Select(x => x.Permission).ToArrayAsync(ct);
+        return Results.Ok(new { canViewCatalog = permissions.Contains(ViewCatalog), canPublish = permissions.Contains(PublishCatalog),
+            canMonitor = permissions.Contains(ViewMonitor), canAdjust = permissions.Contains(AdjustCredits) });
     }
 
     private static async Task<IResult> Catalog(EfiscalDbContext db, CancellationToken ct) =>
@@ -91,8 +114,9 @@ internal static class VendorBillingEndpoints
             join plan in db.PlanVersions on sub.PlanVersionId equals plan.Id
             select new { sub, subscriber.Name, plan }).OrderByDescending(x => x.sub.StartedAt).ThenBy(x => x.sub.SubscriberId)
             .Skip(offset).Take(25).ToArrayAsync(ct);
-        var wallets = await db.CreditWallets.AsNoTracking().OrderByDescending(x => x.CreatedAt).ThenBy(x => x.Id)
-            .Skip(offset).Take(25).Select(w => new { w.SubscriberId, w.Id,
+        var subscribers = subscriptions.Select(x => x.sub.SubscriberId).ToArray();
+        var wallets = await db.CreditWallets.AsNoTracking().Where(x => subscribers.Contains(x.SubscriberId))
+            .Select(w => new { w.SubscriberId, w.Id,
                 available = db.CreditLots.Where(x => x.WalletId == w.Id && x.EffectiveAt <= now && (x.ExpiresAt == null || x.ExpiresAt > now))
                     .Sum(x => (long)(x.Remaining - x.Reserved)) }).ToArrayAsync(ct);
         var walletStatus = new List<object>();

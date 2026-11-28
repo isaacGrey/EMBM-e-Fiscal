@@ -106,7 +106,7 @@ internal static partial class ClientConnectEndpoints
     {
         var cfg = Read(v);
         return new { versionId = v.Id, connectorId = v.ConnectorId, v.Connector.Code, version = v.Number, v.Category,
-            availability = v.Connector.Lifecycle == "Retired" ? "Retired" : v.Connector.Disabled ? "Temporarily Unavailable" : v.Connector.Lifecycle ?? v.Availability,
+            availability = Availability(v),
             cfg.Name, cfg.Description, cfg.LogoLabel, cfg.Deployment, cfg.Editions, cfg.Regions, cfg.ApiVersion, cfg.Documentation,
             cfg.Authentication, cfg.Requirements, cfg.Capabilities, cfg.Priority, development = IsMock(v.Adapter),
             canConnect = v.Connector.Lifecycle is null && grant.Grants.Contains(Manage) && await runtime.Allows(grant, v, plan, ct) };
@@ -133,6 +133,10 @@ internal static partial class ClientConnectEndpoints
         var ticket = runtime.ReadTicket(input.Proof);
         if (ticket is null || ticket.Subscriber != subscriber || ticket.Company != company || ticket.User != http.UserId() || ticket.Version != input.VersionId)
             return TenantAccess.Missing();
+        var connector = await db.ConnectorVersions.Where(x => x.Id == input.VersionId).Select(x => (Guid?)x.ConnectorId).SingleOrDefaultAsync(ct);
+        if (connector is null) return TenantAccess.Missing();
+        // Serialize establishment of new pins with release publication and emergency actions.
+        await db.Database.ExecuteSqlInterpolatedAsync($"""SELECT 1 FROM "Connectors" WHERE "Id" = {connector.Value} FOR UPDATE""", ct);
         var version = await runtime.Catalog().AsNoTracking().SingleOrDefaultAsync(x => x.Id == input.VersionId, ct);
         var plan = await runtime.Plan(subscriber, ct);
         if (version is null || version.Connector.Lifecycle is not null || !await runtime.Allows(Grant(http), version, plan, ct) || adapters.Get(version.Adapter) is not { } adapter)
@@ -382,7 +386,7 @@ internal static partial class ClientConnectEndpoints
         return new { source.Id, source.ConnectionId, provider = Read(source.Connection.Version).Name, shop = source.Connection.ExternalResourceName,
             shopId = source.Connection.ExternalResourceId, source.ExternalOrderId, source.Reference, source.Date, normalized.Status, source.Currency,
             retrievedAt = update?.RetrievedAt ?? source.RetrievedAt, revision = normalized.Revision, order = normalized, key = Eligible(normalized) && source.Connection.Status == "Connected" &&
-                !source.Connection.Version.Connector.Disabled ? ConnectionRuntime.OrderKey(source.Id) : null };
+                Operational(source.Connection.Version) ? ConnectionRuntime.OrderKey(source.Id) : null };
     }
 
     private static async Task<IResult> History(Guid subscriber, Guid company, HttpContext http, EfiscalDbContext db, ConnectionRuntime runtime, CancellationToken ct)
@@ -407,7 +411,7 @@ internal static partial class ClientConnectEndpoints
     {
         link.Id, link.BranchId, link.Name, link.ExternalAccountId, link.ExternalResourceId, link.ExternalResourceName, link.ResourceType,
         link.ConnectorId, link.ConnectorVersionId, connector = Read(version).Name, connectorCode = version.Connector?.Code, version = version.Number,
-        development = IsMock(version.Adapter), status = version.Connector?.Disabled == true && link.Status != "Disconnected" ? "Suspended" : link.Status,
+        development = IsMock(version.Adapter), status = (version.Connector?.Disabled == true || version.Revocation is not null) && link.Status != "Disconnected" ? "Suspended" : link.Status,
         link.Authorization, link.MappingStatus, link.MappingVersion, link.LastSuccessfulTest, link.LastError, link.CreatedBy, link.CreatedAt
     };
 }

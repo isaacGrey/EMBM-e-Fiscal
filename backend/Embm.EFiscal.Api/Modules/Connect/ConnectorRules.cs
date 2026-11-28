@@ -15,8 +15,9 @@ internal static class ConnectorRules
 {
     public const string View = "Connectors.View";
     public const string Edit = "Connectors.Edit";
+    public const string ApproveRelease = "Connectors.Approve";
     public const string Publish = "Connectors.Publish";
-    public static readonly string[] VendorGrants = [View, Edit, Publish];
+    public static readonly string[] VendorGrants = [View, Edit, ApproveRelease, Publish];
     public static readonly string[] Categories = ["Accounting Software", "E-Commerce", "ERP", "POS", "Custom Business Software"];
     public static readonly string[] Deployments = ["Configurable REST API", "Dedicated Cloud Adapter", "Desktop Agent Adapter", "QuickBooks Web Connector", "Other Approved Adapter"];
     public static readonly string[] Authentication = ["API Key", "Bearer Token", "Basic TLS", "OAuth Authorization Code", "OAuth Client Credentials",
@@ -33,6 +34,9 @@ internal static class ConnectorRules
         "ShippingChargeRead", "TaxRead", "PaymentStatusRead", "FulfillmentStatusRead", "RefundRead", "CancellationRead"];
 
     public static bool IsMock(string adapter) => adapter is "mock-accounting" or "mock-commerce";
+    public static bool Operational(ConnectorVersion version) => version.State == "Published" && version.Revocation is null && !version.Connector.Disabled;
+    public static string Availability(ConnectorVersion version) => version.Connector.Lifecycle == "Retired" ? "Retired" :
+        version.Revocation is not null ? "Revoked" : version.Connector.Disabled ? "Temporarily Unavailable" : version.Connector.Lifecycle ?? version.Availability;
     public static string[] MockCapabilities(string adapter) => adapter == "mock-accounting" ? AccountingMock : adapter == "mock-commerce" ? CommerceMock : [];
     public static ConnectorConfig Read(ConnectorVersion version) => version.Configuration.Deserialize<ConnectorConfig>(SpecImport.Json)!;
     public static JsonElement Freeze<T>(T value) => JsonSerializer.SerializeToElement(value, SpecImport.Json);
@@ -85,10 +89,20 @@ internal static class ConnectorRules
         return (values ?? []).Select(x => SpecImport.Text(x, length)).Where(x => x != "").Distinct().ToArray();
     }
 
-    public static async Task GrantLocal(EfiscalDbContext db, Guid user)
+    public static async Task GrantLocal(EfiscalDbContext db, Guid user, string profile)
     {
+        string[] permissions = profile switch
+        {
+            "Administrator" => [..VendorGrants, ..Billing.VendorBillingEndpoints.Grants, ..Reporting.VendorAccreditation.Grants,
+                Reporting.VendorRegulatoryReview.Manage, ..Reporting.RegulatoryConnector.Grants],
+            "ConnectorEditor" => [View, Edit],
+            "ConnectorReviewer" => [View, ApproveRelease],
+            "ConnectorPublisher" => [View, Publish],
+            "CommercialObserver" => [Billing.VendorBillingEndpoints.ViewCatalog, Billing.VendorBillingEndpoints.ViewMonitor],
+            _ => throw new InvalidOperationException("Choose a supported local vendor profile.")
+        };
         var current = await db.VendorConnectorGrants.Where(x => x.UserId == user).Select(x => x.Permission).ToListAsync();
-        db.VendorConnectorGrants.AddRange(VendorGrants.Concat(Reporting.VendorAccreditation.Grants).Append(Reporting.VendorRegulatoryReview.Manage).Concat(Reporting.RegulatoryConnector.Grants).Except(current)
+        db.VendorConnectorGrants.AddRange(permissions.Except(current)
             .Select(permission => new VendorConnectorGrant { UserId = user, Permission = permission }));
     }
 }
