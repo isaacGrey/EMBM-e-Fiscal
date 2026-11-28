@@ -122,3 +122,5 @@ unset EFISCAL_PHASE7_VENDOR_EMAIL EFISCAL_PHASE7_VENDOR_PASSWORD
 Restart the API without the local vendor login setting for routine development. Keep fixture credentials out of Git and keep production services disconnected.
 
 Use local Graphify queries for cross-module discovery and direct RTK commands for routine output. Native Git, Playwright, Chromium CDP, and the existing components support the workflow when hosted integrations are unavailable.
+
+For the regulatory presentation, use the isolated fictional workflows in [the BIR development demonstration guide](docs/BIR_DEMONSTRATION.md). A work branch with a different applied EF history needs separate development and test databases. Keep prior database volumes and records available for recovery.

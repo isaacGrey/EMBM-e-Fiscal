@@ -46,7 +46,7 @@ internal static partial class ClientConnectEndpoints
         connectors.MapPost("/connections/{id:guid}/import-orders", ImportOrders).AddEndpointFilter(Access(Manage, true)).RequireRateLimiting("connector-operation");
     }
 
-    private static Func<EndpointFilterInvocationContext, EndpointFilterDelegate, ValueTask<object?>> Access(string permission, bool write = false) =>
+    private static Func<EndpointFilterInvocationContext, EndpointFilterDelegate, ValueTask<object?>> Access(string permission, bool write = false, bool existingRecords = false) =>
         async (context, next) =>
     {
         var http = context.HttpContext;
@@ -58,7 +58,7 @@ internal static partial class ClientConnectEndpoints
         {
             if (!write)
             {
-                if (await CompanyAccess(db, http, subscriber, company, permission, ct) is null) return TenantAccess.Missing();
+                if (await CompanyAccess(db, http, subscriber, company, permission, ct, existingRecords) is null) return TenantAccess.Missing();
                 return await next(context);
             }
             if (await CompanyAccess(db, http, subscriber, company, permission, ct) is null) return TenantAccess.Missing();
@@ -73,9 +73,9 @@ internal static partial class ClientConnectEndpoints
         catch (ConnectorInputError error) { return ApiSupport.Invalid("connection", error.Message); }
     };
 
-    private static async Task<TenantGrant?> CompanyAccess(EfiscalDbContext db, HttpContext http, Guid subscriber, Guid company, string permission, CancellationToken ct)
+    private static async Task<TenantGrant?> CompanyAccess(EfiscalDbContext db, HttpContext http, Guid subscriber, Guid company, string permission, CancellationToken ct, bool existingRecords = false)
     {
-        var tenant = await TenantAccess.ResolveAsync(db, http, subscriber, permission, ct);
+        var tenant = await TenantAccess.ResolveAsync(db, http, subscriber, permission, ct, existingRecords);
         if (tenant is null || !await TenantAccess.Companies(db, subscriber, http.UserId(), tenant).AnyAsync(x => x.Id == company, ct)) return null;
         http.Items[typeof(TenantGrant)] = tenant;
         return tenant;

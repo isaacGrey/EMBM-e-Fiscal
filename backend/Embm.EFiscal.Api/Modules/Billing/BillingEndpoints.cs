@@ -18,6 +18,7 @@ internal static class BillingEndpoints
         var workspace = client.MapGroup("/subscribers/{subscriber:guid}");
         workspace.MapGet("/summary", Summary);
         workspace.MapGet("/payments", Payments);
+        workspace.MapGet("/provider-records", ProviderBilling.Records);
         workspace.MapGet("/credits", Ledger);
         workspace.MapPut("/subscription", Settings);
         workspace.MapPut("/auto-top-up", AutoTopUp);

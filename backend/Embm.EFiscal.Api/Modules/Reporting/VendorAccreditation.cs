@@ -33,14 +33,17 @@ internal sealed record AccreditationInput(
     string? Applicability, DateOnly? EffectiveDate, DateOnly? SourceReviewedOn, string? ImplementationStatus,
     string? Description, string? Notes, string? Outstanding, string? Supersedes,
     DateOnly? SubmittedOn, string? PresentationStatus, string? EvaluationStatus, string? ExternalDecisionStatus,
-    string? CertificateReference, string? SolutionVersion, string? Modules, string? Infrastructure, int ExpectedVersion);
+    string? CertificateReference, string? SolutionVersion, string? Modules, string? Infrastructure, int ExpectedVersion,
+    string? HostingProvider = null, string? PrimaryRegion = null, string? DatabaseLocation = null, string? ObjectStorage = null,
+    string? BackupLocation = null, string? RecoveryLocation = null, string? Logging = null, string? Processors = null,
+    string? Subcontractors = null, string? DataClassification = null, string? ResidencyReference = null, string? MaterialChangeKey = null);
 
 internal static partial class VendorAccreditation
 {
     internal const string View = "Accreditation.View";
     internal const string Edit = "Accreditation.Edit";
     internal static readonly string[] Grants = [View, Edit];
-    private static readonly string[] Categories = ["Application", "Checklist", "Requirement", "MaterialChange"];
+    private static readonly string[] Categories = ["Application", "Checklist", "Requirement", "MaterialChange", "Infrastructure"];
     private static readonly string[] Readiness = ["UnderReview", "InProgress", "EvidenceReady", "AwaitingExternalValidation"];
     private static readonly Dictionary<string, string> Checklist = new()
     {
@@ -65,7 +68,7 @@ internal static partial class VendorAccreditation
         version.ToTable("AccreditationVersions", t =>
         {
             t.HasCheckConstraint("CK_Accreditation_Category", """
-                "Number" > 0 AND "Category" IN ('Application','Checklist','Requirement','MaterialChange')
+                "Number" > 0 AND "Category" IN ('Application','Checklist','Requirement','MaterialChange','Infrastructure')
                 """);
             t.HasCheckConstraint("CK_Accreditation_Evidence", """
                 ("Filename" IS NULL AND "ContentType" IS NULL AND "Size" IS NULL AND "Sha256" IS NULL) OR
@@ -164,6 +167,9 @@ internal static partial class VendorAccreditation
         if (details.Supersedes is not null && (category != "Requirement" || details.Supersedes == key ||
             !await Records(db).AnyAsync(x => x.Category == "Requirement" && x.Key == details.Supersedes, ct)))
             return ApiSupport.Invalid("supersedes", "Choose a different existing requirement.");
+        if (category == "Infrastructure" && details.MaterialChangeKey is not null &&
+            !await Records(db).AnyAsync(x => x.Category == "MaterialChange" && x.Key == details.MaterialChangeKey, ct))
+            return ApiSupport.Invalid("materialChangeKey", "Choose an existing material change record.");
         var latest = await Records(db).Where(x => x.Category == category && x.Key == key).MaxAsync(x => (int?)x.Number, ct) ?? 0;
         if (latest != details.ExpectedVersion) return ApiSupport.Problem(409, "The record has a newer version.");
         if (latest > 0 && category == "Requirement")
@@ -193,7 +199,7 @@ internal static partial class VendorAccreditation
     {
         "Application" => key == "embm-efiscal",
         "Checklist" => Checklist.ContainsKey(key),
-        "Requirement" or "MaterialChange" => RecordKey().IsMatch(key),
+        "Requirement" or "MaterialChange" or "Infrastructure" => RecordKey().IsMatch(key),
         _ => false
     };
 
@@ -219,6 +225,11 @@ internal static partial class VendorAccreditation
             "Requirement" => x.Status is "UnderReview" or "AwaitingExternalValidation" or "SourceReviewed" &&
                 OfficialSource(x.SourceUrl) && ApiSupport.Text(x.Reference, 120) && ApiSupport.Text(x.Section, 160) && ApiSupport.Text(x.Description, 4000) &&
                 ApiSupport.Text(x.Applicability, 2000) && (x.Status != "SourceReviewed" || x.SourceReviewedOn is not null),
+            "Infrastructure" => Readiness.Contains(x.Status) && ApiSupport.Text(x.HostingProvider, 160) &&
+                ApiSupport.Text(x.PrimaryRegion, 160) && ApiSupport.Text(x.DatabaseLocation, 160) &&
+                ApiSupport.Text(x.DataClassification, 160) && new[] { x.ObjectStorage, x.BackupLocation, x.RecoveryLocation,
+                    x.Logging, x.Processors, x.Subcontractors, x.ResidencyReference, x.MaterialChangeKey }
+                    .All(value => ApiSupport.Optional(value, 500)),
             "MaterialChange" => Readiness.Contains(x.Status) && ApiSupport.Text(x.SolutionVersion, 80) && ApiSupport.Text(x.Notes, 4000),
             _ => false
         };

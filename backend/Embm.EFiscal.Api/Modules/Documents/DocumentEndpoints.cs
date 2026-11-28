@@ -36,9 +36,9 @@ internal static partial class DocumentEndpoints
     }
 
     internal static async Task<DocumentAccess?> Access(Guid subscriber, Guid company, string permission, HttpContext http,
-        EfiscalDbContext db, CancellationToken ct)
+        EfiscalDbContext db, CancellationToken ct, bool existingRecords = false)
     {
-        var grant = await TenantAccess.ResolveAsync(db, http, subscriber, permission, ct);
+        var grant = await TenantAccess.ResolveAsync(db, http, subscriber, permission, ct, existingRecords);
         if (grant is null) return null;
         var workspace = await TenantAccess.Companies(db, subscriber, http.UserId(), grant).AsNoTracking().SingleOrDefaultAsync(x => x.Id == company, ct);
         return workspace is null ? null : new(workspace, grant);
@@ -47,7 +47,7 @@ internal static partial class DocumentEndpoints
     private static async Task<IResult> Options(Guid subscriber, Guid company, string type, HttpContext http, EfiscalDbContext db,
         DocumentCommitService service, CancellationToken ct)
     {
-        if (!Types.Contains(type) || await Access(subscriber, company, Permission(type, false), http, db, ct) is not { } scope)
+        if (!Types.Contains(type) || await Access(subscriber, company, Permission(type, false), http, db, ct, existingRecords: true) is not { } scope)
             return TenantAccess.Missing();
         var typeName = TemplateType(type);
         var templates = SalesOrder(type) ? [] : await db.CompanyTemplates.AsNoTracking()
@@ -55,7 +55,7 @@ internal static partial class DocumentEndpoints
             .OrderBy(x => x.Name).Select(x => new { x.Id, x.Name, x.Kind, x.IsDefault, x.CurrentVersion }).ToArrayAsync(ct);
         var branches = await db.Branches.AsNoTracking().Where(x => x.SubscriberId == subscriber && x.CompanyId == company)
             .OrderBy(x => x.Code).Select(x => new { x.Id, x.Code, x.Name }).ToArrayAsync(ct);
-        var canWrite = scope.Grant.Grants.Contains(Permission(type, true));
+        var canWrite = scope.Grant.Subscriber.Status == CommercialStatus.Active && scope.Grant.Grants.Contains(Permission(type, true));
         return Results.Ok(new { canWrite, canCommit = canWrite && service.CanCommit(type, scope.Grant),
             canExport = scope.Grant.Grants.Contains(ExportPermission), canResend = scope.Grant.Grants.Contains(ResendPermission),
             development = service.LocalFixture(scope.Grant), canBuyCredits = scope.Grant.Grants.Contains("Credits.Purchase"),
@@ -109,11 +109,11 @@ internal static partial class DocumentEndpoints
     {
         try { Key(key); }
         catch (MasterValidation error) { return Invalid(error); }
-        if (await Access(subscriber, company, Permissions.CompanyView, http, db, ct) is null) return TenantAccess.Missing();
+        if (await Access(subscriber, company, Permissions.CompanyView, http, db, ct, existingRecords: true) is null) return TenantAccess.Missing();
         var previous = await service.Prior(subscriber, company, http.UserId(), key, ct);
         if (previous is null) return TenantAccess.Missing();
         var doc = await documents.Scope(subscriber, company).AsNoTracking().SingleAsync(x => x.Id == previous.DocumentId, ct);
-        return await Access(subscriber, company, Permission(doc.Type, false), http, db, ct) is null
+        return await Access(subscriber, company, Permission(doc.Type, false), http, db, ct, existingRecords: true) is null
             ? TenantAccess.Missing() : Results.Ok(DocumentDtos.Receipt(doc));
     }
 
@@ -178,7 +178,7 @@ internal static partial class DocumentEndpoints
     private static async Task<IResult> SourceLines(Guid subscriber, Guid company, string type, Guid id, HttpContext http,
         EfiscalDbContext db, DocumentRelationships documents, CancellationToken ct)
     {
-        if (type is not ("SalesInvoice" or "SalesOrder") || await Access(subscriber, company, Permission(type, false), http, db, ct) is null)
+        if (type is not ("SalesInvoice" or "SalesOrder") || await Access(subscriber, company, Permission(type, false), http, db, ct, existingRecords: true) is null)
             return TenantAccess.Missing();
         try
         {

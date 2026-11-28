@@ -3,7 +3,7 @@ import { useQuery } from '@tanstack/react-query'
 import { Button, Card, ErrorState, Field, Input, LoadingState, Select } from '@/components/ui'
 import { api, errorMessage } from '@/lib/account-api'
 
-type Category = 'Application' | 'Checklist' | 'Requirement' | 'MaterialChange'
+type Category = 'Application' | 'Checklist' | 'Requirement' | 'MaterialChange' | 'Infrastructure'
 type Version = { key: string; category: Category; number: number; details: Record<string, string | number | null>
   recordedAt: string; filename: string | null; sha256: string | null }
 type Register = { provider: string; solution: string; presentationReport: string; canEdit: boolean
@@ -13,7 +13,7 @@ type FormField = { key: string; label: string; type?: string; options?: string[]
 const base = '/vendor/accreditation'
 const tabs: Record<Category, string> = {
   Application: 'ESP Accreditation', Checklist: 'Accreditation Readiness',
-  Requirement: 'Regulatory Requirements', MaterialChange: 'Material Change Reviews',
+  Requirement: 'Regulatory Requirements', MaterialChange: 'Material Change Reviews', Infrastructure: 'Infrastructure Compliance',
 }
 const readiness = ['UnderReview', 'InProgress', 'EvidenceReady', 'AwaitingExternalValidation']
 const source: FormField = { key: 'sourceUrl', label: 'Official BIR source URL', type: 'url', max: 500 }
@@ -41,6 +41,21 @@ const fields: Record<Category, FormField[]> = {
     { key: 'effectiveDate', label: 'Effective date', type: 'date' }, { key: 'sourceReviewedOn', label: 'Source review date', type: 'date' },
     { key: 'implementationStatus', label: 'Implementation status', max: 80 },
     { key: 'supersedes', label: 'Superseded requirement key', max: 64 },
+  ],
+  Infrastructure: [
+    { key: 'status', label: 'Infrastructure review status', options: readiness },
+    { key: 'hostingProvider', label: 'Hosting provider', required: true, max: 160 },
+    { key: 'primaryRegion', label: 'Primary region', required: true, max: 160 },
+    { key: 'databaseLocation', label: 'Database location', required: true, max: 160 },
+    { key: 'objectStorage', label: 'Object storage', max: 500 },
+    { key: 'backupLocation', label: 'Backup location', max: 500 },
+    { key: 'recoveryLocation', label: 'Disaster recovery location', max: 500 },
+    { key: 'logging', label: 'Logging infrastructure', max: 500 },
+    { key: 'processors', label: 'External processors', max: 500 },
+    { key: 'subcontractors', label: 'Subcontractors', max: 500 },
+    { key: 'dataClassification', label: 'Data classification', required: true, max: 160 },
+    { key: 'residencyReference', label: 'Reviewed residency reference', max: 500 }, source,
+    { key: 'materialChangeKey', label: 'Related material change key', max: 64 },
   ],
   MaterialChange: [
     { key: 'status', label: 'Review status', options: readiness },
@@ -116,7 +131,7 @@ export function VendorAccreditationWorkspace() {
       <h3>{tabs[category]}</h3>
       {error && <ErrorState>{error}</ErrorState>}
       {message && <p role="status">{message}</p>}
-      {data.canEdit && ['Requirement', 'MaterialChange'].includes(category) && <Button onClick={() => setEdit({})}>Add record</Button>}
+      {data.canEdit && ['Requirement', 'MaterialChange', 'Infrastructure'].includes(category) && <Button onClick={() => setEdit({})}>Add record</Button>}
       <ul className="workspace-stack">{rows.map(row => <li key={row.key} className="reporting-pagination">
         <strong>{row.title}</strong><span>{row.current ? human(String(row.current.details.status)) : 'Awaiting evidence'}</span>
         {row.current && <Button variant="light" disabled={busy} onClick={() => setSelected(row.key)}>View history</Button>}

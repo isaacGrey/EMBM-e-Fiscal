@@ -19,20 +19,20 @@ internal static partial class ClientConnectEndpoints
     private static void MapReconciliation(RouteGroupBuilder connect)
     {
         var group = connect.MapGroup("/reconciliation").WithTags("Reconciliation");
-        group.MapGet("/coverage", ReadCoverage).AddEndpointFilter(Access(Coverage.View));
+        group.MapGet("/coverage", ReadCoverage).AddEndpointFilter(Access(Coverage.View, existingRecords: true));
         group.MapPost("/coverage/preview", CoveragePreview).AddEndpointFilter(Access(Coverage.Manage));
         group.MapPost("/coverage", SaveCoverage).AddEndpointFilter(Access(Coverage.Manage, true));
         group.MapPost("/coverage/{id:guid}/activate", ActivateCoverage).AddEndpointFilter(Access(Coverage.Approve, true));
         group.MapPost("/jobs", QueueReconciliation).AddEndpointFilter(Access(Coverage.Run, true)).RequireRateLimiting("connector-operation");
-        group.MapGet("/jobs", ReconciliationJobs).AddEndpointFilter(Access(Coverage.View));
+        group.MapGet("/jobs", ReconciliationJobs).AddEndpointFilter(Access(Coverage.View, existingRecords: true));
         group.MapPost("/jobs/{id:guid}/cancel", CancelReconciliation).AddEndpointFilter(Access(Coverage.Run, true));
-        group.MapGet("/overview", ReconciliationOverview).AddEndpointFilter(Access(Coverage.View));
-        group.MapGet("/register", ReconciliationRegister).AddEndpointFilter(Access(Coverage.View));
-        group.MapGet("/comparisons/{id:guid}", ReconciliationDetail).AddEndpointFilter(Access(Coverage.View));
-        group.MapGet("/documents/{id:guid}", DocumentReconciliation).AddEndpointFilter(Access(Coverage.View));
-        group.MapGet("/discrepancies", ReconciliationFindings).AddEndpointFilter(Access(Coverage.View));
+        group.MapGet("/overview", ReconciliationOverview).AddEndpointFilter(Access(Coverage.View, existingRecords: true));
+        group.MapGet("/register", ReconciliationRegister).AddEndpointFilter(Access(Coverage.View, existingRecords: true));
+        group.MapGet("/comparisons/{id:guid}", ReconciliationDetail).AddEndpointFilter(Access(Coverage.View, existingRecords: true));
+        group.MapGet("/documents/{id:guid}", DocumentReconciliation).AddEndpointFilter(Access(Coverage.View, existingRecords: true));
+        group.MapGet("/discrepancies", ReconciliationFindings).AddEndpointFilter(Access(Coverage.View, existingRecords: true));
         group.MapPost("/discrepancies/{id:guid}/review", ReviewDiscrepancy).AddEndpointFilter(Access(Coverage.Review, true));
-        group.MapGet("/reports/{format}", ReconciliationReport).AddEndpointFilter(Access(Coverage.Export));
+        group.MapGet("/reports/{format}", ReconciliationReport).AddEndpointFilter(Access(Coverage.Export, existingRecords: true));
         group.MapGet("/references", ListAccountingReferences).AddEndpointFilter(Access(Coverage.References)).RequireRateLimiting("connector-operation");
         group.MapPost("/references", SaveAccountingReference).AddEndpointFilter(Access(Coverage.References, true)).RequireRateLimiting("connector-operation");
         group.MapPost("/matches", SaveAccountingMatch).AddEndpointFilter(Access(Coverage.Match, true));

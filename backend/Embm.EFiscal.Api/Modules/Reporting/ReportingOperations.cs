@@ -85,7 +85,7 @@ internal static class ReportingOperations
     private static async Task<IResult> Register(Guid subscriber, Guid company, HttpContext http, EfiscalDbContext db,
         IWebHostEnvironment env, CancellationToken ct)
     {
-        if (await DocumentEndpoints.Access(subscriber, company, "Reports.View", http, db, ct) is not { } access) return TenantAccess.Missing();
+        if (await DocumentEndpoints.Access(subscriber, company, "Reports.View", http, db, ct, existingRecords: true) is not { } access) return TenantAccess.Missing();
         var rows = await Scoped(db, subscriber, company).AsNoTracking().OrderByDescending(x => x.At).Take(100).ToArrayAsync(ct);
         var canSimulate = env.IsDevelopment() && access.Grant.Subscriber.DevelopmentFixture && access.Grant.Grants.Contains(Permissions.CompanyManage);
         var active = canSimulate ? await RegulatoryConnector.LatestEvents(db).Where(x => x.State == "Active")
@@ -96,7 +96,7 @@ internal static class ReportingOperations
 
     private static async Task<IResult> Attempts(Guid subscriber, Guid company, Guid id, HttpContext http, EfiscalDbContext db, CancellationToken ct)
     {
-        if (await DocumentEndpoints.Access(subscriber, company, "Reports.View", http, db, ct) is null ||
+        if (await DocumentEndpoints.Access(subscriber, company, "Reports.View", http, db, ct, existingRecords: true) is null ||
             !await Scoped(db, subscriber, company).AnyAsync(x => x.Id == id, ct)) return TenantAccess.Missing();
         var rows = await db.Set<ReportingOperationAttempt>().AsNoTracking().Where(x => x.OperationId == id)
             .OrderBy(x => x.Sequence).ToArrayAsync(ct);
@@ -110,7 +110,7 @@ internal static class ReportingOperations
             input.Mode is not ("Preparation" or "DevelopmentSimulation"))
             return ApiSupport.Invalid("operation", "Select up to 20 distinct documents and a supported operating mode.");
         await using var tx = await db.LockSubscriberAsync(subscriber, ct);
-        if (await DocumentEndpoints.Access(subscriber, company, Permissions.CompanyManage, http, db, ct) is not { } access ||
+        if (await DocumentEndpoints.Access(subscriber, company, Permissions.CompanyManage, http, db, ct, existingRecords: input.Mode == "Preparation") is not { } access ||
             !access.Grant.Grants.Contains("Reports.View")) return TenantAccess.Missing();
         var simulation = input.Mode == "DevelopmentSimulation";
         if (simulation && (!env.IsDevelopment() || !access.Grant.Subscriber.DevelopmentFixture)) return TenantAccess.Missing();

@@ -118,7 +118,7 @@ internal static class CanonicalInvoices
     private static async Task<IResult> Resolve(Guid subscriber, Guid company, string type, Guid id, HttpContext http,
         EfiscalDbContext db, CancellationToken ct, bool download)
     {
-        if (!Supports(type) || await DocumentEndpoints.Access(subscriber, company, Permission(type, false), http, db, ct) is null)
+        if (!Supports(type) || await DocumentEndpoints.Access(subscriber, company, Permission(type, false), http, db, ct, existingRecords: true) is null)
             return TenantAccess.Missing();
         var document = await db.FiscalDocuments.AsNoTracking().Where(d => d.SubscriberId == subscriber && d.CompanyId == company &&
             d.Id == id && d.Type == type).Select(d => new { d.Number }).SingleOrDefaultAsync(ct);
@@ -158,10 +158,10 @@ internal static class CanonicalInvoices
     private static async Task<IResult> Generate(Guid subscriber, Guid company, string type, Guid id, HttpContext http,
         EfiscalDbContext db, CancellationToken ct)
     {
-        if (!Supports(type) || await DocumentEndpoints.Access(subscriber, company, Permission(type, false), http, db, ct) is null)
+        if (!Supports(type) || await DocumentEndpoints.Access(subscriber, company, Permission(type, false), http, db, ct, existingRecords: true) is null)
             return TenantAccess.Missing();
         await using var tx = await db.LockSubscriberAsync(subscriber, ct);
-        if (await DocumentEndpoints.Access(subscriber, company, Permission(type, false), http, db, ct) is null)
+        if (await DocumentEndpoints.Access(subscriber, company, Permission(type, false), http, db, ct, existingRecords: true) is null)
             return TenantAccess.Missing();
         var doc = await db.FiscalDocuments.AsNoTracking().Include(d => d.Snapshot).Include(d => d.Lines)
             .SingleOrDefaultAsync(d => d.SubscriberId == subscriber && d.CompanyId == company && d.Id == id && d.Type == type, ct);

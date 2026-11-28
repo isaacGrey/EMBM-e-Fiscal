@@ -98,3 +98,7 @@ Migration 20261127063356 adds RegulatorySchemaVersions and seeds the internal ca
 ### Phase 9 additive migrations
 
 `AccountingDestinationWindows` adds scoped accounting route windows with approval and optional closure evidence. `HistoricalInvoiceCreditReference` adds a tenant- and company-scoped foreign key from eligible development Credit Memos to immutable historical accounting evidence. The document constraint requires exactly one supported original. `MarketplaceFinancialMapping` adds optional shipping and seller-funded discount bindings to versioned connection mappings. Committed document snapshots retain the financial components and source mapping version.
+
+## Phase 10 taxpayer governance
+
+The additive taxpayer portability migration creates immutable export archives, retention policy versions, scoped legal holds and separate release records. The continuity migration adds append-only incident, manual reference and fictional deadline policy revisions. It also adds infrastructure to the existing private provider accreditation register. These migrations do not delete financial records or enable automated disposal.

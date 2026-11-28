@@ -97,7 +97,18 @@ internal static class RegulatoryConnector
         var tests = await db.Set<RegulatoryConnectorTest>().AsNoTracking().OrderByDescending(x => x.At).Take(100).ToArrayAsync(ct);
         var grants = await db.VendorConnectorGrants.AsNoTracking().Where(x => x.UserId == actor && Grants.Contains(x.Permission))
             .Select(x => x.Permission).ToArrayAsync(ct);
-        return Results.Ok(new { identity = "BIR reporting gateway", mappingVersion = MappingVersion, officialTransmission = false,
+        var queue = await db.Set<ReportingOperation>().AsNoTracking().GroupBy(x => new { x.Mode, x.State })
+            .Select(x => new { x.Key.Mode, x.Key.State, count = x.Count() }).OrderBy(x => x.Mode).ThenBy(x => x.State).ToArrayAsync(ct);
+        var development = db.Subscribers.Where(x => x.DevelopmentFixture).Select(x => x.Id);
+        var incidentHistory = db.Set<ContinuityRecord>().Where(x => x.Kind == "Incident" && development.Contains(x.SubscriberId));
+        var incidents = await incidentHistory.Where(x => !incidentHistory.Any(r => r.SubscriberId == x.SubscriberId &&
+                r.CompanyId == x.CompanyId && r.Key == x.Key && r.Version > x.Version))
+            .GroupBy(x => x.Details.GetProperty("state").GetString())
+            .Select(x => new { state = x.Key, count = x.Count() }).OrderBy(x => x.state).ToArrayAsync(ct);
+        var holds = db.Set<LegalHold>().Where(x => development.Contains(x.SubscriberId));
+        var openHolds = await holds.CountAsync(x => !db.Set<LegalHoldRelease>().Any(r => r.HoldId == x.Id), ct);
+        var exports = await db.Set<TaxpayerExport>().CountAsync(x => development.Contains(x.SubscriberId), ct);
+        return Results.Ok(new { queue, governance = new { incidents, openHolds, exports }, identity = "BIR reporting gateway", mappingVersion = MappingVersion, officialTransmission = false,
             certificationEnabled = false, versions, events, tests, scenarios = Scenarios, grants });
     }
 

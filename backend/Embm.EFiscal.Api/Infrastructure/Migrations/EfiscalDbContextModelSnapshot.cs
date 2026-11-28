@@ -3479,10 +3479,108 @@ namespace Embm.EFiscal.Api.Infrastructure.Migrations
 
                     b.ToTable("AccreditationVersions", null, t =>
                         {
-                            t.HasCheckConstraint("CK_Accreditation_Category", "\"Number\" > 0 AND \"Category\" IN ('Application','Checklist','Requirement','MaterialChange')");
+                            t.HasCheckConstraint("CK_Accreditation_Category", "\"Number\" > 0 AND \"Category\" IN ('Application','Checklist','Requirement','MaterialChange','Infrastructure')");
 
                             t.HasCheckConstraint("CK_Accreditation_Evidence", "(\"Filename\" IS NULL AND \"ContentType\" IS NULL AND \"Size\" IS NULL AND \"Sha256\" IS NULL) OR\n(\"Filename\" IS NOT NULL AND \"ContentType\" IS NOT NULL AND \"Size\" IS NOT NULL AND\n \"Size\" BETWEEN 1 AND 2097152 AND \"Sha256\" IS NOT NULL AND length(\"Sha256\") = 64)");
                         });
+                });
+
+            modelBuilder.Entity("Embm.EFiscal.Api.Modules.Reporting.ContinuityRecord", b =>
+                {
+                    b.Property<Guid>("SubscriberId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("CompanyId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Kind")
+                        .HasMaxLength(24)
+                        .HasColumnType("character varying(24)");
+
+                    b.Property<string>("Key")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<int>("Version")
+                        .HasColumnType("integer");
+
+                    b.Property<Guid>("ActorId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("BranchId")
+                        .HasColumnType("uuid");
+
+                    b.Property<JsonElement>("Details")
+                        .HasColumnType("jsonb");
+
+                    b.Property<DateTimeOffset>("RecordedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("SubscriberId", "CompanyId", "Kind", "Key", "Version");
+
+                    b.ToTable("ContinuityRecords", (string)null);
+                });
+
+            modelBuilder.Entity("Embm.EFiscal.Api.Modules.Reporting.LegalHold", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("BranchId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Category")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<Guid>("CompanyId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("CreatedBy")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateOnly>("From")
+                        .HasColumnType("date");
+
+                    b.Property<string>("Reason")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<Guid>("SubscriberId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateOnly>("Through")
+                        .HasColumnType("date");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("SubscriberId", "CompanyId", "CreatedAt");
+
+                    b.ToTable("LegalHolds", (string)null);
+                });
+
+            modelBuilder.Entity("Embm.EFiscal.Api.Modules.Reporting.LegalHoldRelease", b =>
+                {
+                    b.Property<Guid>("HoldId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("ActorId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset>("At")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Reason")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.HasKey("HoldId");
+
+                    b.ToTable("LegalHoldReleases", (string)null);
                 });
 
             modelBuilder.Entity("Embm.EFiscal.Api.Modules.Reporting.RegulatoryAuthorization", b =>
@@ -4055,6 +4153,93 @@ namespace Embm.EFiscal.Api.Infrastructure.Migrations
                         {
                             t.HasCheckConstraint("CK_ReportingSimulation_Outcome", "\"Outcome\" = 'SimulationValidated'");
                         });
+                });
+
+            modelBuilder.Entity("Embm.EFiscal.Api.Modules.Reporting.RetentionVersion", b =>
+                {
+                    b.Property<Guid>("SubscriberId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("CompanyId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Category")
+                        .HasColumnType("text");
+
+                    b.Property<int>("Version")
+                        .HasColumnType("integer");
+
+                    b.Property<Guid>("ActorId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateOnly>("EffectiveFrom")
+                        .HasColumnType("date");
+
+                    b.Property<string>("MigrationEvidence")
+                        .HasColumnType("text");
+
+                    b.Property<string>("Preservation")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<int?>("ProposedYears")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTimeOffset>("RecordedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("RequirementKey")
+                        .HasColumnType("text");
+
+                    b.Property<int?>("RequirementVersion")
+                        .HasColumnType("integer");
+
+                    b.HasKey("SubscriberId", "CompanyId", "Category", "Version");
+
+                    b.ToTable("RetentionVersions", (string)null);
+                });
+
+            modelBuilder.Entity("Embm.EFiscal.Api.Modules.Reporting.TaxpayerExport", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("ActorId")
+                        .HasColumnType("uuid");
+
+                    b.Property<byte[]>("Archive")
+                        .IsRequired()
+                        .HasColumnType("bytea");
+
+                    b.Property<Guid>("CompanyId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("DocumentCount")
+                        .HasColumnType("integer");
+
+                    b.Property<DateOnly>("From")
+                        .HasColumnType("date");
+
+                    b.Property<DateTimeOffset>("GeneratedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Sha256")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<Guid>("SubscriberId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateOnly>("Through")
+                        .HasColumnType("date");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("SubscriberId", "CompanyId", "GeneratedAt");
+
+                    b.ToTable("TaxpayerExports", (string)null);
                 });
 
             modelBuilder.Entity("Embm.EFiscal.Api.Modules.Reporting.VendorReviewAssignment", b =>
@@ -6618,6 +6803,35 @@ namespace Embm.EFiscal.Api.Infrastructure.Migrations
                         .IsRequired();
                 });
 
+            modelBuilder.Entity("Embm.EFiscal.Api.Modules.Reporting.ContinuityRecord", b =>
+                {
+                    b.HasOne("Embm.EFiscal.Api.Modules.Tenants.Company", null)
+                        .WithMany()
+                        .HasForeignKey("SubscriberId", "CompanyId")
+                        .HasPrincipalKey("SubscriberId", "Id")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Embm.EFiscal.Api.Modules.Reporting.LegalHold", b =>
+                {
+                    b.HasOne("Embm.EFiscal.Api.Modules.Tenants.Company", null)
+                        .WithMany()
+                        .HasForeignKey("SubscriberId", "CompanyId")
+                        .HasPrincipalKey("SubscriberId", "Id")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Embm.EFiscal.Api.Modules.Reporting.LegalHoldRelease", b =>
+                {
+                    b.HasOne("Embm.EFiscal.Api.Modules.Reporting.LegalHold", null)
+                        .WithOne()
+                        .HasForeignKey("Embm.EFiscal.Api.Modules.Reporting.LegalHoldRelease", "HoldId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
             modelBuilder.Entity("Embm.EFiscal.Api.Modules.Reporting.RegulatoryAuthorization", b =>
                 {
                     b.HasOne("Embm.EFiscal.Api.Modules.Tenants.TaxpayerProfile", null)
@@ -6719,6 +6933,26 @@ namespace Embm.EFiscal.Api.Infrastructure.Migrations
                         .WithMany()
                         .HasForeignKey("SubscriberId", "CompanyId", "PreparationId")
                         .HasPrincipalKey("SubscriberId", "CompanyId", "Id")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Embm.EFiscal.Api.Modules.Reporting.RetentionVersion", b =>
+                {
+                    b.HasOne("Embm.EFiscal.Api.Modules.Tenants.Company", null)
+                        .WithMany()
+                        .HasForeignKey("SubscriberId", "CompanyId")
+                        .HasPrincipalKey("SubscriberId", "Id")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Embm.EFiscal.Api.Modules.Reporting.TaxpayerExport", b =>
+                {
+                    b.HasOne("Embm.EFiscal.Api.Modules.Tenants.Company", null)
+                        .WithMany()
+                        .HasForeignKey("SubscriberId", "CompanyId")
+                        .HasPrincipalKey("SubscriberId", "Id")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
                 });

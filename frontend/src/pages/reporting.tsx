@@ -7,7 +7,7 @@ import { api, errorMessage } from '@/lib/account-api'
 type Register = { mode: string; canPrepare: boolean; canSimulate: boolean; total: number; items: {
   id: string; type: string; number: string; date: string; developmentFixture: boolean; prepared: boolean; simulated: boolean
 }[] }
-type Readiness = { registeredName: string; taxpayerVerification: string; registrationEvidenceCount: number
+type Readiness = { registeredName: string; taxpayerVerification: string; registrationEvidenceCount: number; structuredDocuments: number; preparedDocuments: number
   companyRdo: { code: string } | null
   branches: { code: string; name: string; rdo: { code: string } | null }[]
 }
@@ -45,6 +45,8 @@ export function ReportingWorkspace({ base }: { base: string }) {
         <div><dt>Registered taxpayer</dt><dd>{readiness.data.registeredName}</dd></div>
         <div><dt>Taxpayer verification</dt><dd>{readiness.data.taxpayerVerification === 'NotVerified' ? 'Not verified' : readiness.data.taxpayerVerification}</dd></div>
         <div><dt>Registration evidence</dt><dd>{readiness.data.registrationEvidenceCount}</dd></div>
+        <div><dt>Canonical structured invoices and credits</dt><dd>{readiness.data.structuredDocuments}</dd></div>
+        <div><dt>Prepared documents</dt><dd>{readiness.data.preparedDocuments}</dd></div>
         <div><dt>Company RDO</dt><dd>{readiness.data.companyRdo?.code ?? 'Unassigned'}</dd></div>
         {readiness.data.branches.map(branch => <div key={branch.code}><dt>{branch.code} · {branch.name}</dt>
           <dd>{branch.rdo ? 'Branch RDO ' + branch.rdo.code : 'No branch RDO assignment'}</dd></div>)}

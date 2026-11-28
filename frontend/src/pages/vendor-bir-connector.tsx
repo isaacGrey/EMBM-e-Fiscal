@@ -8,7 +8,8 @@ type Version = { number: number; environment: string; apiVersion: string; docume
   authenticationAdapter: string; specification?: { format: string; title: string; endpoints: { method: string; path: string; request?: unknown; response?: unknown }[] } }
 type Event = { version: number; sequence: number; state: string; reason: string }
 type Trial = { id: string; version: number; scenario: string; payloadHash: string; responseHash: string; response: unknown }
-type Register = { versions: Version[]; events: Event[]; tests: Trial[]; scenarios: string[]; grants: string[]; mappingVersion: string }
+type Register = { queue: { mode: string; state: string; count: number }[]; versions: Version[]; events: Event[]; tests: Trial[]; scenarios: string[]; grants: string[]; mappingVersion: string
+  governance: { incidents: { state: string; count: number }[]; openHolds: number; exports: number } }
 const next: Record<string, string[]> = {
   Draft: ['UnderReview'], UnderReview: ['ConfigurationValidated'], ConfigurationValidated: ['ApprovedForActivation'],
   ApprovedForActivation: ['Active'], Active: ['Suspended', 'Disabled'], Suspended: ['Active', 'Disabled'], Disabled: ['Retired'],
@@ -52,6 +53,19 @@ export function VendorBirConnector() {
   const grants = data.data.grants
   return <Card className="workspace-card workspace-stack">
     <h2>BIR API configuration</h2>
+    <section aria-label="Aggregate reporting queue">
+      <h3>Reporting queue monitoring</h3>
+      {data.data.queue.length === 0 ? <p>No reporting operations recorded.</p> : <dl className="workspace-definitions">{data.data.queue.map(row =>
+        <div key={row.mode + ':' + row.state}><dt>{title(row.mode)} · {title(row.state)}</dt><dd>{row.count}</dd></div>)}</dl>}
+    </section>
+    <section aria-label="Aggregate development governance">
+      <h3>Development records and continuity</h3>
+      <dl className="workspace-definitions">
+        {data.data.governance.incidents.map(row => <div key={row.state}><dt>{title(row.state)} incidents</dt><dd>{row.count}</dd></div>)}
+        <div><dt>Open legal holds</dt><dd>{data.data.governance.openHolds}</dd></div>
+        <div><dt>Generated taxpayer exports</dt><dd>{data.data.governance.exports}</dd></div>
+      </dl>
+    </section>
     <p>Official specifications and connectivity are pending. All test requests run in the isolated development simulator.</p>
     <p>Regulatory mapping {data.data.mappingVersion}</p>
     {error && <ErrorState>{error}</ErrorState>}

@@ -58,7 +58,7 @@ public static partial class TenantEndpoints
         var intent = await db.Registrations.AsNoTracking().SingleOrDefaultAsync(x => x.UserId == id, ct);
         object? active = null;
         if (session.ActiveSubscriberId is Guid subscriber && session.ActiveCompanyId is Guid company &&
-            await TenantAccess.CompanyAsync(db, http, subscriber, company, Permissions.CompanyView, ct) is not null)
+            await TenantAccess.CompanyAsync(db, http, subscriber, company, Permissions.CompanyView, ct, existingRecords: true) is not null)
         {
             var branch = session.ActiveBranchId is Guid branchId &&
                 await db.Branches.AnyAsync(x => x.Id == branchId && x.SubscriberId == subscriber && x.CompanyId == company, ct) ? session.ActiveBranchId : null;
@@ -93,19 +93,19 @@ public static partial class TenantEndpoints
 
     private static async Task<IResult> Companies(Guid subscriberId, HttpContext http, EfiscalDbContext db, CancellationToken ct)
     {
-        var grant = await TenantAccess.ResolveAsync(db, http, subscriberId, Permissions.CompanyView, ct);
+        var grant = await TenantAccess.ResolveAsync(db, http, subscriberId, Permissions.CompanyView, ct, existingRecords: true);
         if (grant is null) return TenantAccess.Missing();
         var query = TenantAccess.Companies(db, subscriberId, http.UserId(), grant);
         var companies = await query.OrderBy(x => x.RegisteredName)
             .Select(x => new { x.Id, x.Code, x.RegisteredName }).ToListAsync(ct);
         return Results.Ok(new { companies, permissions = grant.Grants,
-            canAddCompany = grant.IsOwner && companies.Count < grant.Subscriber.CompanyLimit &&
+            canAddCompany = grant.IsOwner && grant.Subscriber.Status == CommercialStatus.Active && companies.Count < grant.Subscriber.CompanyLimit &&
                 await new CreditEngine(db).AllowsOperations(subscriberId, DateTimeOffset.UtcNow, ct) });
     }
 
     private static async Task<IResult> Details(Guid subscriberId, Guid companyId, HttpContext http, EfiscalDbContext db, CancellationToken ct)
     {
-        var company = await TenantAccess.CompanyAsync(db, http, subscriberId, companyId, Permissions.CompanyView, ct);
+        var company = await TenantAccess.CompanyAsync(db, http, subscriberId, companyId, Permissions.CompanyView, ct, existingRecords: true);
         if (company is null) return TenantAccess.Missing();
         var taxpayer = await db.TaxpayerProfiles.AsNoTracking().SingleAsync(x => x.SubscriberId == subscriberId && x.CompanyId == companyId, ct);
         var assignments = await db.RdoAssignments.AsNoTracking().Where(x => x.SubscriberId == subscriberId && x.CompanyId == companyId)
@@ -119,14 +119,14 @@ public static partial class TenantEndpoints
 
     private static async Task<IResult> References(Guid subscriberId, HttpContext http, EfiscalDbContext db, IWebHostEnvironment env, CancellationToken ct)
     {
-        if (await TenantAccess.ResolveAsync(db, http, subscriberId, Permissions.CompanyView, ct) is null) return TenantAccess.Missing();
+        if (await TenantAccess.ResolveAsync(db, http, subscriberId, Permissions.CompanyView, ct, existingRecords: true) is null) return TenantAccess.Missing();
         var development = env.IsDevelopment();
         return Results.Ok(await db.RdoReferences.Where(x => x.Active && (development || !x.DevelopmentFixture)).OrderBy(x => x.Code).ToListAsync(ct));
     }
 
     private static async Task<IResult> SetContext(Guid subscriberId, ContextRequest input, HttpContext http, EfiscalDbContext db, CancellationToken ct)
     {
-        if (await TenantAccess.CompanyAsync(db, http, subscriberId, input.CompanyId, Permissions.CompanyView, ct) is null ||
+        if (await TenantAccess.CompanyAsync(db, http, subscriberId, input.CompanyId, Permissions.CompanyView, ct, existingRecords: true) is null ||
             (input.BranchId is Guid branch && !await BranchQuery(db, subscriberId, input.CompanyId).AnyAsync(x => x.Id == branch, ct)))
             return TenantAccess.Missing();
         var session = (await db.Sessions.FindAsync([http.SessionId()], ct))!;
@@ -218,13 +218,13 @@ public static partial class TenantEndpoints
 
     private static async Task<IResult> Branches(Guid subscriberId, Guid companyId, HttpContext http, EfiscalDbContext db, CancellationToken ct)
     {
-        if (await TenantAccess.CompanyAsync(db, http, subscriberId, companyId, Permissions.BranchView, ct) is null) return TenantAccess.Missing();
+        if (await TenantAccess.CompanyAsync(db, http, subscriberId, companyId, Permissions.BranchView, ct, existingRecords: true) is null) return TenantAccess.Missing();
         return Results.Ok(await BranchQuery(db, subscriberId, companyId).OrderBy(x => x.Code).ToListAsync(ct));
     }
 
     private static async Task<IResult> GetBranch(Guid subscriberId, Guid companyId, Guid branchId, HttpContext http, EfiscalDbContext db, CancellationToken ct)
     {
-        if (await TenantAccess.CompanyAsync(db, http, subscriberId, companyId, Permissions.BranchView, ct) is null) return TenantAccess.Missing();
+        if (await TenantAccess.CompanyAsync(db, http, subscriberId, companyId, Permissions.BranchView, ct, existingRecords: true) is null) return TenantAccess.Missing();
         var branch = await BranchQuery(db, subscriberId, companyId).SingleOrDefaultAsync(x => x.Id == branchId, ct);
         return branch is null ? TenantAccess.Missing() : Results.Ok(branch);
     }

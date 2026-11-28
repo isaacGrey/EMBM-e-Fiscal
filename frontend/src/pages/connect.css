@@ -15,7 +15,7 @@
 .connect-actions [type=file] { max-width: 100%; }
 .connect-table { width: 100%; min-width: 0; max-width: 100%; overflow-x: auto; margin: .75rem 0 0; }
 .connect-table table { width: 100%; border-collapse: collapse; text-align: left; }
-.connect-table table:has(thead th:nth-child(4)) { min-width: 34rem; }
+.connect-table table:has(thead th:nth-child(4)) { min-width: var(--connect-table-min-width, 34rem); }
 .connect-table th, .connect-table td { padding: .7rem .75rem; border-bottom: 1px solid #dbe4f0; vertical-align: top; }
 .connect-table th { background: #f1f5fa; font-size: .84rem; }
 .connect-table td { overflow-wrap: anywhere; }
@@ -28,6 +28,8 @@
 .connect-builder .workspace-card form { margin-top: .75rem; }
 .access-wrap.vendor-billing-wrap:has(.connect-builder) { width: min(100% - 36px, 980px); }
 .connect-table:focus-visible { outline: 2px solid #4854ee; outline-offset: 2px; }
+.taxpayer-exports { --connect-table-min-width: 28rem; }
+.taxpayer-exports .connect-table .button { white-space: nowrap; }
 .connect-capabilities, .connect-capability-editor { display: grid; gap: .55rem; margin: .8rem 0; }
 .connect-capability-row { display: grid; grid-template-columns: minmax(10rem, 1fr) minmax(8rem, 1fr) minmax(12rem, 1fr); align-items: center; gap: .4rem; }
 .connect-check { display: flex; gap: .5rem; align-items: center; }

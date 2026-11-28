@@ -68,3 +68,5 @@ Canonical invoice retrieval uses the same scoped view permissions as the committ
 ### Schema activation boundary
 
 The schema registry does not accept uploaded schemas or run schema-supplied code. The deployed internal validation profile is the only profile eligible for canonical checks. An unverified or checksum-invalid registry record cannot turn on official validation, issuance or transmission.
+
+Existing document and reporting access still requires a current company assignment and the specific data permission, including for an expired or cancelled subscriber. New commitments and other operational writes continue to enforce the commercial gate. Export history omits archive contents. Archive creation restricts evidence to the authorized company, records checksums and does not include authentication material. Downloads recheck scope and archive integrity. Legal holds, releases and continuity records are append-only. Manual invoice reference capture and fictional deadline previews authorize no production recovery or submission.

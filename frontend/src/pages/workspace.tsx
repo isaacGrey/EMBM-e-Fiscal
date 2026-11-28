@@ -17,7 +17,9 @@ import { FieldMapping, ReferenceMapping } from './field-mapping'
 import { Synchronization } from './accounting-sync'
 import { ReconciliationWorkspace } from './reconciliation'
 import { ReconciliationCoverage } from './reconciliation-coverage'
+import { ReportingContinuity, TaxpayerPortability, TaxpayerPreservation } from './taxpayer-governance'
 import { ReportingWorkspace } from './reporting'
+import { ProviderBilling } from './provider-billing'
 import { RegulatoryAuthorizationWorkspace } from './regulatory-authorization'
 import { BranchSettings, CompanySettings, RdoHistory, SecuritySettings, SettingsForm, TaxpayerSettings, TeamSettings, UserSettings } from './workspace-settings'
 import './workspace.css'
@@ -28,6 +30,7 @@ const links = [
   { path: 'subscription', label: 'Subscription', icon: Wallet, billing: true },
   { path: 'credits', label: 'Save & Send Credits', icon: Wallet, billing: true },
   { path: 'billing-history', label: 'Billing History', icon: FileText, billing: true },
+  { path: 'provider-billing', label: 'Provider Billing Records', icon: FileText, billing: true },
   { path: 'company', label: 'Company Information', icon: FileText },
   { path: 'workstations', label: 'Invoicing Workstations', icon: FileText },
   { path: 'documents/SalesInvoice', label: 'Sales Invoices', icon: FileText },
@@ -48,6 +51,9 @@ const links = [
   { path: 'integrations/reconciliation-settings', label: 'Reconciliation Settings', icon: Settings, integration: true, manage: true, fixture: true },
   { path: 'reconciliation', label: 'Reconciliation', icon: ShieldCheck, fixture: true },
   { path: 'reporting', label: 'BIR Reporting Preparation', icon: ShieldCheck, compliance: true },
+  { path: 'portability', label: 'Data Portability', icon: Database, compliance: true },
+  { path: 'continuity', label: 'Reporting Continuity', icon: ShieldCheck, compliance: true },
+  { path: 'preservation', label: 'Record Preservation', icon: ShieldCheck, compliance: true },
   { path: 'regulatory-authorizations', label: 'Regulatory Authorizations', icon: ShieldCheck, compliance: true },
   { path: 'delivery', label: 'Delivery & Templates', icon: Settings },
   { path: 'taxpayer', label: 'Taxpayer Registration', icon: FileText, compliance: true },
@@ -150,8 +156,9 @@ function SubscriberWorkspace({ subscriber, user, active, section }: { subscriber
   if (query.isError) return <ErrorState>{errorMessage(query.error)}</ErrorState>
   const companies = query.data
   const grants = companies.permissions
-  const canEdit = grants.includes('Company.Manage')
+  const canEdit = subscriber.status === 'Active' && grants.includes('Company.Manage')
   const masterSection = section === 'master-data' || section.startsWith('master-data/')
+  if (section === 'provider-billing') return <ProviderBilling key={subscriber.id} subscriber={subscriber.id} />
   if (['subscription', 'credits', 'billing-history'].includes(section))
     return grants.includes('Billing.View') ? <BillingWorkspace subscriber={subscriber.id} section={section} />
       : <ErrorState>Billing access is unavailable for your role.</ErrorState>
@@ -202,6 +209,9 @@ function SubscriberWorkspace({ subscriber, user, active, section }: { subscriber
     else if (section === 'regulatory-authorizations') content = grants.includes('Regulatory.Evidence.View')
       ? <RegulatoryAuthorizationWorkspace key={companyPath} base={companyPath + '/regulatory-authorizations'} branches={branches.data ?? []} />
       : <ErrorState>Authorization evidence is unavailable for your role.</ErrorState>
+    else if (section === 'portability') content = <TaxpayerPortability key={companyPath} base={companyPath + '/portability'} />
+    else if (section === 'continuity') content = <ReportingContinuity key={companyPath} base={companyPath + '/continuity'} branches={branches.data ?? []} />
+    else if (section === 'preservation') content = <TaxpayerPreservation key={companyPath} base={companyPath + '/preservation'} branches={branches.data ?? []} />
     else if (section === 'reporting') content = grants.includes('Reports.View')
       ? <ReportingWorkspace key={companyPath} base={companyPath + '/reporting'} /> : <ErrorState>Reporting access is unavailable for your role.</ErrorState>
     else if (section === 'reconciliation' || section.startsWith('reconciliation/'))
@@ -244,7 +254,7 @@ function WorkspaceShell({ user }: { user: Session }) {
   const query = useQuery({ queryKey: workspaceKey(user.id), queryFn: () => api<WorkspaceData>('/workspace') })
   const [selected, setSelected] = useState('')
   const [error, setError] = useState('')
-  const activeSubscribers = query.data?.subscribers.filter(subscriber => subscriber.status === 'Active') ?? []
+  const activeSubscribers = query.data?.subscribers.filter(subscriber => subscriber.status !== 'PendingPayment') ?? []
   const subscriber = activeSubscribers.find(item => item.id === selected) ??
     activeSubscribers.find(item => item.id === query.data?.active?.subscriberId) ?? activeSubscribers[0]
 

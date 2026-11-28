@@ -90,7 +90,7 @@ internal static partial class DocumentEndpoints
     private static async Task<IResult> Download(Guid subscriber, Guid company, string type, Guid id, bool? inline, HttpContext http, EfiscalDbContext db,
         CancellationToken ct)
     {
-        if (type is not ("SalesInvoice" or "CreditMemo") || await Access(subscriber, company, Permission(type, false), http, db, ct) is null)
+        if (type is not ("SalesInvoice" or "CreditMemo") || await Access(subscriber, company, Permission(type, false), http, db, ct, existingRecords: true) is null)
             return TenantAccess.Missing();
         var result = await (from document in db.FiscalDocuments.AsNoTracking()
             join issued in db.IssuedDocumentFiles.AsNoTracking()

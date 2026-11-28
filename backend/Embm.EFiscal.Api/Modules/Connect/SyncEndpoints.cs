@@ -18,8 +18,8 @@ internal static partial class ClientConnectEndpoints
         group.MapGet("/accounting/destinations", SyncDestinations).AddEndpointFilter(Access(Manage));
         group.MapPut("/accounting/destinations", SetSyncDestination).AddEndpointFilter(Access(Manage, true));
         group.MapPost("/accounting/destination-windows", ApproveSyncWindow).AddEndpointFilter(Access(Manage, true));
-        group.MapGet("/accounting/jobs", SyncRegister).AddEndpointFilter(Access(Manage));
-        group.MapGet("/accounting/jobs/{document:guid}", SyncDetail).AddEndpointFilter(Access(Permissions.CompanyView));
+        group.MapGet("/accounting/jobs", SyncRegister).AddEndpointFilter(Access(Manage, existingRecords: true));
+        group.MapGet("/accounting/jobs/{document:guid}", SyncDetail).AddEndpointFilter(Access(Permissions.CompanyView, existingRecords: true));
         group.MapPost("/accounting/jobs/{document:guid}/retry", RetrySync).AddEndpointFilter(Access(Manage, true));
     }
 

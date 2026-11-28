@@ -13,7 +13,7 @@ internal static partial class DocumentEndpoints
         string? accounting, string? regulator, int? page, bool? export, HttpContext http, EfiscalDbContext db,
         DocumentRelationships documents, CancellationToken ct)
     {
-        if (!Types.Contains(type) || await Access(subscriber, company, Permission(type, false), http, db, ct) is not { } scope
+        if (!Types.Contains(type) || await Access(subscriber, company, Permission(type, false), http, db, ct, existingRecords: true) is not { } scope
             || export == true && !scope.Grant.Grants.Contains(ExportPermission)) return TenantAccess.Missing();
         if (new[] { q, number, source, delivery, accounting, regulator }.Any(x => !ApiSupport.Optional(x, 120)) || from > through)
             return ApiSupport.Invalid("filter", "Choose supported filter values and a valid date range.");
@@ -58,7 +58,7 @@ internal static partial class DocumentEndpoints
     private static async Task<IResult> Detail(Guid subscriber, Guid company, string type, Guid id, HttpContext http, EfiscalDbContext db,
         DocumentRelationships documents, CancellationToken ct)
     {
-        if (!Types.Contains(type) || await Access(subscriber, company, Permission(type, false), http, db, ct) is not { } scope)
+        if (!Types.Contains(type) || await Access(subscriber, company, Permission(type, false), http, db, ct, existingRecords: true) is not { } scope)
             return TenantAccess.Missing();
         var doc = await documents.Scope(subscriber, company).AsNoTracking().Include(x => x.Snapshot).Include(x => x.Processing)
             .Include(x => x.Lines).SingleOrDefaultAsync(x => x.Id == id && x.Type == type, ct);

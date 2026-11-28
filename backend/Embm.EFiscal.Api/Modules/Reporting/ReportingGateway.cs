@@ -65,7 +65,7 @@ internal static class ReportingGateway
     private static async Task<IResult> Readiness(Guid subscriber, Guid company, HttpContext http,
         EfiscalDbContext db, CancellationToken ct)
     {
-        if (await DocumentEndpoints.Access(subscriber, company, "Reports.View", http, db, ct) is not { } access)
+        if (await DocumentEndpoints.Access(subscriber, company, "Reports.View", http, db, ct, existingRecords: true) is not { } access)
             return TenantAccess.Missing();
 
         var taxpayer = await db.TaxpayerProfiles.AsNoTracking()
@@ -84,6 +84,9 @@ internal static class ReportingGateway
         return Results.Ok(new
         {
             access.Company.RegisteredName,
+            structuredDocuments = await db.ReportingPreparations.CountAsync(x => x.SubscriberId == subscriber &&
+                x.CompanyId == company && x.SchemaVersion == CanonicalInvoices.Version, ct),
+            preparedDocuments = await Preparations(db, subscriber, company).CountAsync(ct),
             taxpayerVerification = taxpayer?.VerificationStatus.ToString() ?? "NotVerified",
             registrationEvidenceCount = evidenceCount,
             companyRdo = assignments.FirstOrDefault(x => x.BranchId == null),
@@ -104,7 +107,7 @@ internal static class ReportingGateway
     private static async Task<IResult> Register(Guid subscriber, Guid company, int? page, HttpContext http,
         EfiscalDbContext db, IWebHostEnvironment environment, CancellationToken ct)
     {
-        if (await DocumentEndpoints.Access(subscriber, company, "Reports.View", http, db, ct) is not { } access)
+        if (await DocumentEndpoints.Access(subscriber, company, "Reports.View", http, db, ct, existingRecords: true) is not { } access)
             return TenantAccess.Missing();
         if (page is < 1 or > 10000) return ApiSupport.Invalid("page", "Use a page between 1 and 10000.");
         var query = Documents(db, subscriber, company);
@@ -123,7 +126,7 @@ internal static class ReportingGateway
 
     private static async Task<IResult> Detail(Guid subscriber, Guid company, Guid document, HttpContext http, EfiscalDbContext db, CancellationToken ct)
     {
-        if (await DocumentEndpoints.Access(subscriber, company, "Reports.View", http, db, ct) is null ||
+        if (await DocumentEndpoints.Access(subscriber, company, "Reports.View", http, db, ct, existingRecords: true) is null ||
             !await Documents(db, subscriber, company).AnyAsync(x => x.Id == document, ct)) return TenantAccess.Missing();
         var preparation = await Preparations(db, subscriber, company).AsNoTracking().SingleOrDefaultAsync(x => x.DocumentId == document, ct);
         if (preparation is null) return TenantAccess.Missing();
@@ -137,7 +140,7 @@ internal static class ReportingGateway
     private static async Task<IResult> Prepare(Guid subscriber, Guid company, Guid document, HttpContext http, EfiscalDbContext db, CancellationToken ct)
     {
         await using var tx = await db.LockSubscriberAsync(subscriber, ct);
-        if (await DocumentEndpoints.Access(subscriber, company, Permissions.CompanyManage, http, db, ct) is not { } access ||
+        if (await DocumentEndpoints.Access(subscriber, company, Permissions.CompanyManage, http, db, ct, existingRecords: true) is not { } access ||
             !access.Grant.Grants.Contains("Reports.View")) return TenantAccess.Missing();
         var doc = await Documents(db, subscriber, company).Include(x => x.Lines).Include(x => x.Snapshot).SingleOrDefaultAsync(x => x.Id == document, ct);
         if (doc is null) return TenantAccess.Missing();
