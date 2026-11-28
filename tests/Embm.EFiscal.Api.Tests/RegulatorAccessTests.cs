@@ -6,6 +6,7 @@ using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
+using Npgsql;
 using Xunit;
 
 namespace Embm.EFiscal.Api.Tests;
@@ -131,6 +132,12 @@ public sealed partial class IdentityTenantTests
             Assert.True(await db.Set<RegulatorReadAudit>().AnyAsync(x => x.GrantId == companyGrant &&
                 x.CompanyId == f.Company && x.BranchId == f.Branch && x.Export && x.Count == 1));
             await RegulatorFixtureCommands.Revoke(db, companyGrant);
+            var reopen = await Assert.ThrowsAsync<PostgresException>(() => db.Set<RegulatorGrant>().Where(x => x.Id == companyGrant)
+                .ExecuteUpdateAsync(update => update.SetProperty(x => x.RevokedAt, (DateTimeOffset?)null)));
+            Assert.Equal("Regulator grants may only be revoked", reopen.MessageText);
+            var rewrite = await Assert.ThrowsAsync<PostgresException>(() => db.Set<RegulatorReadAudit>().Where(x => x.GrantId == companyGrant)
+                .ExecuteUpdateAsync(update => update.SetProperty(x => x.Count, 0)));
+            Assert.Equal("This integration record is immutable", rewrite.MessageText);
         });
         await Expect(reader.GetAsync(Path(companyGrant)), HttpStatusCode.NotFound);
         Assert.Equal(2, (await Json(reader, grants)).GetProperty("items").GetArrayLength());

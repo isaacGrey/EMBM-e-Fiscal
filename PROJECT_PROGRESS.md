@@ -330,4 +330,6 @@ Started on `Development` from `49b9ec4`. Added a separate opt-in synthetic regul
 
 Migration `20261128114041_RegulatorReadAccess` adds grants and audit records with database protection for revocation history and append-only reads. It applied to the development and test databases, which each have 23 applied migrations. EF found no pending model changes. The Release and TypeScript/Vite builds passed. Synthetic Chromium sign-in, search, tax summary, export and revocation passed across desktop, tablet and mobile. The complete regression suites are running on this checkpoint.
 
+The local databases had recorded the first migration before its protection SQL was present. Additive migration `20261128115156_EnsureRegulatorReadIntegrity` installed the triggers in both databases, now at 24 migrations. A rolled-back PostgreSQL check confirmed that both reopening a revoked grant and modifying a recorded read audit are rejected. The Phase 11 regression test also exercises these protections.
+
 Production regulator sign-in and record access require verified regulator authorization and approved MFA identity integration. The fixture guide records the setup and the current boundaries. [Regulator portal guide](docs/REGULATOR_PORTAL.md)
