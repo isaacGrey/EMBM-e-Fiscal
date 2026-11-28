@@ -52,4 +52,15 @@ Use this fictional configuration in the manual configuration field. Use the inde
 
 Development reporting uses an isolated simulator. Real endpoints, authentication, formats, acknowledgments, deadlines, production hosting and actual accreditation or certification require independent verification and approval. Refer to work on ESP accreditation and the requested system presentation as project-owner information. Keep the official reporting controls disabled. The deadline preview uses fictional rules and can never mark a taxpayer legally overdue.
 
+| Dependency | Required evidence | Current gate |
+| --- | --- | --- |
+| Applicability and commencement | Authoritative issuance and reporting rules, effective dates, covered taxpayers and branches, and any historical or outage obligations | Regulatory requirement review and fictional deadline preview |
+| Official connectivity | Government-issued specifications covering environments, authentication, signing, schemas, error and acknowledgment formats, and status and replay semantics | Internal preparation and in-process simulation |
+| Accreditation and certification | Applicable ESP guidance, verified official authorization, and access to the designated certification process | Private development evidence register |
+| Record preservation and recovery | Verified retention periods, approved manual series and recovery treatment, and authorization for any controlled disposal | Preserve-all policies, legal holds, and fictional incident references |
+| Infrastructure and evidence | Approved residency and processing terms, production hosting evidence, and production file scanning | Private infrastructure declarations and development evidence handling |
+| Provider billing | Verified EMBM taxpayer profile, approved service charges, verified tax and discount treatment, and issuance authorization | Confirmed payment and refund history |
+
+The requirements registry references the BIR publications below. Retrieve their official versions and applicable amendments for source review. The cited digest could not be retrieved from the cloud environment. [RMC No. 98-2026 digest](https://bir-cdn.bir.gov.ph/BIR/pdf/RMC%20No.%2098-2026%20Digest.pdf) · [RR No. 11-2025](https://bir-cdn.bir.gov.ph/BIR/pdf/RR%20No.%2011-2025.pdf) · [RR No. 26-2025](https://bir-cdn.bir.gov.ph/BIR/pdf/RR%20No.%2026-2025.pdf)
+
 Any future regulator-facing read contract must verify an explicit, current authorization for the taxpayer, company and permitted branches before selecting records. RDO and nationwide views require independently verified permissions. Selecting an RDO cannot expand a grant. The existing scoped records can support invoices, tax summaries, reconciliation, reporting and audit views under that future contract. The regulator sign-in remains disabled.
