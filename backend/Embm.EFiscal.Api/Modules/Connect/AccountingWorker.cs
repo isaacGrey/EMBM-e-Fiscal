@@ -205,6 +205,8 @@ internal sealed class AccountingWorker(IServiceScopeFactory services, ILogger<Ac
             if (identity is null) return (null, "SourceStillPending");
             return identity.ConnectionId == provider.Connection.Id ? (identity.ExternalId, null) : (null, "SourceDestinationMismatch");
         }
+        if (HistoricalCreditLink.Of(doc) is { } historical)
+            return historical.Matches(provider.Connection) ? (historical.RecordId, null) : (null, "SourceDestinationMismatch");
         if (doc.ExternalOrderKey is not { } key) return (null, null);
         if (key.StartsWith("shop-", StringComparison.Ordinal))
             return (doc.ExternalOrderNumber, null);

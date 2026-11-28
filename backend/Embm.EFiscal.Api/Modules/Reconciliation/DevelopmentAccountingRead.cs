@@ -59,7 +59,7 @@ internal sealed class DevelopmentAccountingRead(EfiscalDbContext db, ConnectionR
             var date = values.Header.TryGetValue("date", out var day) && DateOnly.TryParse(day.ToString(), out var parsed) ? parsed : (DateOnly?)null;
             var item = new RetrievedAccounting(row.ExternalId, row.ExternalNumber, row.ExternalType, date, "Efiscal",
                 change?.At ?? row.CreatedAt, values, "Scoped accounting store readback", row.OperationId);
-            results.Add(item);
+            results.Add(change?.Scenario == "WrongIdentity" ? item with { Id = row.ExternalId + "-different" } : item);
             if (change?.Scenario == "Duplicate") results.Add(item with { Id = row.ExternalId + "-duplicate" });
         }
         return new("Complete", [..results]);
@@ -80,6 +80,10 @@ internal sealed class DevelopmentAccountingRead(EfiscalDbContext db, ConnectionR
         return ExternalFixtures(provider, type).Where(r => query is null || r.Number.Contains(query, StringComparison.OrdinalIgnoreCase)).Take(25).ToArray();
     }
 
+    internal static bool HasCompleteCreditHistory(RetrievedAccounting invoice) =>
+        invoice.Type == "SalesInvoice" && invoice.Values.Header.TryGetValue("creditLedger", out var ledger) &&
+        ledger.ValueKind == JsonValueKind.String && ledger.GetString() == "ImmutableDevelopmentLedgerV1";
+
     private static RetrievedAccounting[] ExternalFixtures(AuthorizedProvider provider, string? type = null)
     {
         var suffix = provider.Connection.ExternalResourceId.EndsWith("ceb", StringComparison.Ordinal) ? "CEB" : "MNL";
@@ -92,7 +96,7 @@ internal sealed class DevelopmentAccountingRead(EfiscalDbContext db, ConnectionR
 
         var rows = new[]
         {
-            Fixture("HIST", new(2026, 12, 15), "SalesInvoice", "Adopted"),
+            Fixture("HIST", new(2026, 10, 15), "SalesInvoice", "Adopted"),
             Fixture("CUTOVER", new(2027, 1, 1), "SalesInvoice", "Adopted"),
             Fixture("EXTERNAL", new(2027, 1, 3), "SalesInvoice", "ApprovedExternal"),
             Fixture("CURRENT", new(2027, 1, 10), "CreditMemo", "Adopted"),
@@ -103,8 +107,13 @@ internal sealed class DevelopmentAccountingRead(EfiscalDbContext db, ConnectionR
         RetrievedAccounting Fixture(string id, DateOnly date, string documentType, string source) => new(
             "fixture-" + suffix + "-" + id, "MOCK-" + suffix + "-" + id, documentType, date, source, null,
             new(Normalize(new() { ["date"] = date, ["documentType"] = documentType, ["currency"] = "PHP",
-                ["customer"] = "DEMO-BUYER", ["grossSales"] = 200m, ["vat"] = 24m, ["total"] = 224m, ["status"] = "Posted" }),
-                [new("fixture-line-1", Normalize(new() { ["item"] = "DEMO-SERVICE", ["quantity"] = 2m, ["unitPrice"] = 100m,
+                ["customer"] = "DEMO-BUYER", ["grossSales"] = 210m, ["commercialDiscount"] = 10m,
+                ["vat"] = 24m, ["total"] = 224m, ["status"] = "Posted",
+                ["creditLedger"] = id == "HIST" ? "ImmutableDevelopmentLedgerV1" : null,
+                ["priorAdjustments"] = id == "HIST" ?
+                    new[] { new HistoricalAdjustment("prior-credit-" + suffix, "fixture-line-1", 0.5m, 52.50m, 2.50m, 50m, 6m, 56m) } : null }),
+                [new("fixture-line-1", Normalize(new() { ["item"] = "DEMO-SERVICE", ["quantity"] = 2m, ["unitPrice"] = 105m,
+                    ["gross"] = 210m, ["commercialDiscount"] = 10m, ["vatableSales"] = 200m,
                     ["taxClassification"] = "VATable", ["vat"] = 24m, ["total"] = 224m }))]), "Scoped development accounting fixture");
     }
 

@@ -27,7 +27,7 @@ export type Authorization = {
 }
 export type MappingInfo = {
   template: string; fields: { location: string; name: string; type: string; required: boolean; allowedValues?: string[] }[];
-  versions: { number: number; customerId: string; itemId: string; unitId: string; createdAt: string }[];
+  versions: { number: number; customerId: string; itemId: string; unitId: string; shippingItemId?: string | null; sellerDiscountGroupId?: string | null; createdAt: string }[];
 }
 export type ProviderOrder = {
   id: string; reference: string; orderedOn: string; currency: string; status: string; customerCode: string; customerName: string;

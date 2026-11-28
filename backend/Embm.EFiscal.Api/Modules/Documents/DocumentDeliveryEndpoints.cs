@@ -30,7 +30,7 @@ internal static partial class DocumentEndpoints
         if (type is not ("SalesInvoice" or "CreditMemo")) return TenantAccess.Missing();
         // End the read-only transaction before rendering to prevent a lengthy rendering operation holding a database snapshot.
         FiscalDocument? document = null;
-        var validation = await ReadPreview(subscriber, company, type, http, db, async scope =>
+        var validation = await ReadPreview(subscriber, company, type, input, http, db, async scope =>
         {
             document = (await assembly.Prepare(scope.Company, http.UserId(), type, input, service.LocalFixture(scope.Grant), ct)).Document;
             return Results.NoContent();
@@ -43,7 +43,7 @@ internal static partial class DocumentEndpoints
         EfiscalDbContext db, DocumentAssembly assembly, DocumentCommitService service, CancellationToken ct)
     {
         if (type is not ("SalesInvoice" or "CreditMemo")) return Task.FromResult(TenantAccess.Missing());
-        return ReadPreview(subscriber, company, type, http, db, async scope =>
+        return ReadPreview(subscriber, company, type, input, http, db, async scope =>
         {
             var doc = (await assembly.Prepare(scope.Company, http.UserId(), type, input, service.LocalFixture(scope.Grant), ct)).Document;
             var delivery = Read<DeliveryStamp>(doc.Snapshot.Delivery);

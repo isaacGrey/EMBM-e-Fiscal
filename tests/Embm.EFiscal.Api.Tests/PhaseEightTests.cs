@@ -235,7 +235,7 @@ public sealed partial class IdentityTenantTests
         Assert.Equal(0, refreshed.GetProperty("imported").GetInt32());
         Assert.Equal(1, refreshed.GetProperty("updated").GetInt32());
         var updated = (await Json(owner, path + "/source-orders/" + sourceId)).GetProperty("record");
-        Assert.Equal(2, updated.GetProperty("revision").GetInt32());
+        Assert.Equal(3, updated.GetProperty("revision").GetInt32());
         Assert.Equal("Partially Refunded", updated.GetProperty("status").GetString());
         Assert.Equal(key, updated.GetProperty("key").GetString());
         var mapped = await Json(owner, f.Path + "/external-order/" + key);

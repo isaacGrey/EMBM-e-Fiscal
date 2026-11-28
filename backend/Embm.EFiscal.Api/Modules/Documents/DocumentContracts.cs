@@ -15,7 +15,9 @@ internal record DocumentInput(string? Action, DateOnly Date, Guid BranchId, Guid
     string? Recipient = null, Guid? PdfTemplateId = null, Guid? EmailTemplateId = null, string? Remarks = null,
     string? AdjustmentReason = null, string? AdjustmentKind = null, DateOnly? RequestedDeliveryDate = null,
     string? ShippingAddress = null, string? Salesperson = null, string? PurchaseOrderReference = null,
-    string? ExternalReference = null, string? WarehouseReference = null, bool AllowPartial = false, JsonElement? Custom = null, Guid? PaymentTermId = null);
+    string? ExternalReference = null, string? WarehouseReference = null, bool AllowPartial = false, JsonElement? Custom = null, Guid? PaymentTermId = null,
+    [property: System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    Guid? HistoricalInvoiceReferenceId = null);
 internal record CommitInput(string? Key, string? Confirmation, DocumentInput? Document);
 internal record SeriesInput(Guid? BranchId, DateOnly EffectiveFrom, string? Prefix, int Digits, long InitialNumber, int ExpectedRevision);
 internal record ResendInput(string? Key, string? Recipient);

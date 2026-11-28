@@ -207,7 +207,7 @@ internal static partial class ClientConnectEndpoints
     {
         if (!MockAccess(http)) return TenantAccess.Missing();
         string[] scenarios = ["Exact", "Vat", "Discount", "Total", "Customer", "Quantity", "Price", "TaxClass", "MissingLine", "ExtraLine", "DuplicateLine",
-            "Reorder", "Unsupported", "Missing", "Duplicate", "Unavailable", "RateLimit", "IncompletePagination"];
+            "Reorder", "Unsupported", "Missing", "Duplicate", "WrongIdentity", "Unavailable", "RateLimit", "IncompletePagination"];
         if (!scenarios.Contains(input.Scenario)) return ApiSupport.Invalid("scenario", "Choose an approved development scenario.");
         var pin = await db.SyncOperations.AsNoTracking().SingleOrDefaultAsync(x => x.SubscriberId == subscriber && x.CompanyId == company && x.DocumentId == id, ct);
         if (pin is null || await AccountingLinks(db, subscriber, company).SingleOrDefaultAsync(x => x.Id == pin.ConnectionId, ct) is not { } link ||

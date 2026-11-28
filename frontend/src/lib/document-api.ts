@@ -47,7 +47,8 @@ export type SourceDocument = { document: DocumentReceipt; partialFulfillment: bo
 export type ExternalSource = {
   financialReview?: string | null;
   key: string; number: string; connector: string; account: string; customerId: string; currency?: string; branchId?: string
-  lines: { key: string; itemId: string; unitId: string; quantity: string; remainingQuantity: string }[]
+  marketplace?: { invoiceTotal: string; settlement: string; mappingVersion: number } | null
+  lines: { key: string; itemId: string; unitId: string; quantity: string; remainingQuantity: string; remainingAmount?: string }[]
 }
 export type EmailPreview = { subject: string; body: string; brand: string; signature: string; footer: string; recipient: string | null; preview: boolean }
 export const procedureName = (type: DocumentType) => type === 'SalesOrder' ? 'Save' : 'Save & Send'

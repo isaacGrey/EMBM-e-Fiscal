@@ -1,3 +1,4 @@
+using Embm.EFiscal.Api.Modules.Reconciliation;
 using System.Text.Json;
 using Embm.EFiscal.Api.Modules.MasterData;
 using Embm.EFiscal.Api.Modules.Tenants;
@@ -24,15 +25,20 @@ internal static class DocumentModel
             .HasPrincipalKey(x => new { x.SubscriberId, x.CompanyId, x.Id }).OnDelete(DeleteBehavior.Restrict);
         document.HasOne(x => x.SourceDocument).WithMany().HasForeignKey(x => new { x.SubscriberId, x.CompanyId, Id = x.SourceDocumentId })
             .HasPrincipalKey(x => new { x.SubscriberId, x.CompanyId, x.Id }).OnDelete(DeleteBehavior.Restrict);
+        document.HasOne<AccountingReference>().WithMany()
+            .HasForeignKey(x => new { x.SubscriberId, x.CompanyId, Id = x.HistoricalInvoiceReferenceId })
+            .HasPrincipalKey(x => new { x.SubscriberId, x.CompanyId, x.Id }).OnDelete(DeleteBehavior.Restrict);
         document.Property(x => x.Type).HasMaxLength(16);
         document.Property(x => x.Number).HasMaxLength(42);
         document.Property(x => x.Currency).HasMaxLength(3);
         document.ToTable(t =>
         {
             t.HasCheckConstraint("CK_Documents_Action", """
-                ("Type" = 'SalesOrder' AND "Credits" = 0 AND "SourceDocumentId" IS NULL AND "ExternalOrderKey" IS NULL) OR
-                ("Type" = 'SalesInvoice' AND "Credits" = 1 AND ("SourceDocumentId" IS NULL OR "ExternalOrderKey" IS NULL)) OR
-                ("Type" = 'CreditMemo' AND "Credits" = 1 AND "SourceDocumentId" IS NOT NULL AND "ExternalOrderKey" IS NULL)
+                ("Type" = 'SalesOrder' AND "Credits" = 0 AND "SourceDocumentId" IS NULL AND "ExternalOrderKey" IS NULL AND "HistoricalInvoiceReferenceId" IS NULL) OR
+                ("Type" = 'SalesInvoice' AND "Credits" = 1 AND "HistoricalInvoiceReferenceId" IS NULL AND ("SourceDocumentId" IS NULL OR "ExternalOrderKey" IS NULL)) OR
+                ("Type" = 'CreditMemo' AND "Credits" = 1 AND "ExternalOrderKey" IS NULL AND
+                  (("SourceDocumentId" IS NOT NULL AND "HistoricalInvoiceReferenceId" IS NULL) OR
+                   ("DevelopmentFixture" AND "SourceDocumentId" IS NULL AND "HistoricalInvoiceReferenceId" IS NOT NULL)))
                 """);
             t.HasCheckConstraint("CK_Documents_Amounts", """
                 "LineCount" BETWEEN 1 AND 100 AND "Precision" BETWEEN 0 AND 6 AND "ExchangeRate" > 0

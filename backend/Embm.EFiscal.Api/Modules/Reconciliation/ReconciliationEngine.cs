@@ -38,6 +38,8 @@ internal sealed class ReconciliationEngine(EfiscalDbContext db, DevelopmentAccou
     {
         var subscriber = link.SubscriberId;
         var company = link.CompanyId;
+        var leaseKey = $"reconciliation:{subscriber:N}:{company:N}:{documentId:N}";
+        await db.Database.ExecuteSqlInterpolatedAsync($"SELECT pg_advisory_xact_lock(hashtextextended({leaseKey}, 0))", ct);
         var doc = await db.FiscalDocuments.AsNoTracking().Include(x => x.Processing).Include(x => x.Snapshot).Include(x => x.Lines)
             .SingleAsync(x => x.SubscriberId == subscriber && x.CompanyId == company && x.Id == documentId, ct);
         var check = New(link, policy, job, "document:" + documentId.ToString("N"), doc.Type, doc.Date, doc.BranchId);
@@ -157,6 +159,8 @@ internal sealed class ReconciliationEngine(EfiscalDbContext db, DevelopmentAccou
         if (doc.SourceDocumentId is Guid source)
             relationship = await db.ExternalDocumentIdentities.AsNoTracking().Where(x => x.SubscriberId == link.SubscriberId &&
                 x.CompanyId == link.CompanyId && x.ConnectionId == link.Id && x.DocumentId == source).Select(x => x.ExternalId).SingleOrDefaultAsync(ct);
+        else if (HistoricalCreditLink.Of(doc) is { } historical && historical.Matches(link))
+            relationship = historical.RecordId;
         else if (doc.ExternalOrderKey is string external)
             relationship = external.StartsWith("so-" + link.Id.ToString("N") + "-", StringComparison.Ordinal) ? external[36..] : doc.ExternalOrderNumber;
         var committed = FieldMapper.Document(doc, relationship);

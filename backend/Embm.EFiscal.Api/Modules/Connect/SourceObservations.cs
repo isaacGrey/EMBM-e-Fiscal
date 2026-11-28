@@ -47,7 +47,8 @@ internal static class SourceObservations
         if (scenario == "RefundUpdate")
             rows = rows.Select(x => x.Id == "0001" ? x with
             {
-                Status = "Partially Refunded", Refund = 100m, Revision = 2,
+                Status = "Partially Refunded", Refund = 100m, Revision = x.Revision + 1,
+                Financials = x.Financials is { } terms ? terms with { Refund = 100m, Settlement = null } : null,
                 Lines = x.Lines.Select(line => line with { InvoiceableQuantity = Math.Max(0, line.InvoiceableQuantity - 1) }).ToArray()
             } : x).ToArray();
         return rows.Where(x => (after is null || string.CompareOrdinal(x.Id, after) > 0) &&

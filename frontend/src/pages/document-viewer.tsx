@@ -61,6 +61,12 @@ export function DocumentViewer({ base, type, id, options }: { base: string; type
     ['Electronic delivery', statusName(result.electronicDelivery)], ['Accounting synchronization', statusName(result.accounting)],
     ['BIR reporting', statusName(result.regulator)],
   ]
+  const external = result.header.externalSource as { account?: string; externalCompany?: string; recordId?: string;
+    marketplace?: { mappingVersion: number; components: Record<string, number | boolean> } } | null
+  const marketplaceLabels: Record<string, string> = { productGross: 'Product gross', sellerFundedDiscount: 'Seller-funded discount',
+    platformFundedVoucher: 'Platform-funded voucher', customerShipping: 'Customer-paid shipping', shippingSubsidy: 'Shipping subsidy',
+    commission: 'Marketplace commission', serviceFee: 'Service fee', processingFee: 'Processing fee', settlementDeduction: 'Settlement deductions',
+    refund: 'Refund', cancelled: 'Cancelled', settlement: 'Settlement amount' }
   const sourceNumber = typeof result.header.sourceNumber === 'string' ? result.header.sourceNumber : doc.externalOrderNumber
   return <div className="doc-stack">
     <Card className="workspace-card doc-panel">
@@ -70,6 +76,9 @@ export function DocumentViewer({ base, type, id, options }: { base: string; type
       <dl className="workspace-definitions">
         {details.map(([label, value]) => <div key={label}><dt>{label}</dt><dd>{value}</dd></div>)}
         {sourceNumber && <div><dt>Source reference</dt><dd>{sourceNumber}</dd></div>}
+        {external?.externalCompany && <div><dt>Original external company or shop</dt><dd>{external.externalCompany}</dd></div>}
+        {external?.account && <div><dt>Original external account</dt><dd>{external.account}</dd></div>}
+        {external?.recordId && <div><dt>Original external record ID</dt><dd>{external.recordId}</dd></div>}
         {result.file && <div><dt>PDF SHA-256</dt><dd>{result.file.sha256}</dd></div>}
         {result.templates.pdf && <div><dt>PDF template</dt><dd>{result.templates.pdf.name} · v{result.templates.pdf.version}</dd></div>}
         {result.templates.email && <div><dt>Email template</dt><dd>{result.templates.email.name} · v{result.templates.email.version}</dd></div>}
@@ -86,6 +95,14 @@ export function DocumentViewer({ base, type, id, options }: { base: string; type
       <h3>Committed values</h3>
       <LineTable lines={result.lines} />
       <DocumentTotals totals={result.totals} currency={doc.currency} />
+      {external?.marketplace && <details><summary>Marketplace financial evidence</summary>
+        <p>Source mapping v{external.marketplace.mappingVersion}</p>
+        <dl className="workspace-definitions">{Object.entries(marketplaceLabels).map(([key, label]) => {
+          const value = external.marketplace?.components[key]
+          return value == null ? null : <div key={key}><dt>{label}</dt><dd>{typeof value === 'boolean' ? value ? 'Yes' : 'No' :
+            new Intl.NumberFormat('en-PH', { style: 'currency', currency: doc.currency }).format(value)}</dd></div>
+        })}</dl>
+      </details>}
       <details><summary>Calculation and snapshot history</summary>
         <p>Seller {result.parties.seller.name} · Customer {result.parties.customer.name}</p>
         {result.parties.customer.tin && <p>Customer TIN {result.parties.customer.tin}</p>}

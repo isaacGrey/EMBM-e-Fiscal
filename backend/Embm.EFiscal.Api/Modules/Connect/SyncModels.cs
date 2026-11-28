@@ -19,6 +19,25 @@ internal sealed class SyncDestination
     public string Scenario { get; set; } = "Normal";
 }
 
+internal sealed class SyncDestinationWindow
+{
+    public Guid Id { get; set; } = Guid.NewGuid();
+    public Guid SubscriberId { get; set; }
+    public Guid CompanyId { get; set; }
+    public Guid? BranchId { get; set; }
+    public Guid ProfileId { get; set; }
+    public MappingProfile Profile { get; set; } = null!;
+    public string DocumentType { get; set; } = "";
+    public DateOnly Start { get; set; }
+    public DateOnly? End { get; set; }
+    public bool Automatic { get; set; }
+    public Guid? ClosedBy { get; set; }
+    public DateTimeOffset? ClosedAt { get; set; }
+    public Guid ApprovedBy { get; set; }
+    public DateTimeOffset ApprovedAt { get; set; }
+    public string Reason { get; set; } = "";
+}
+
 internal sealed class SyncOperation
 {
     public Guid Id { get; set; }
@@ -99,6 +118,14 @@ internal static class SyncModel
         b.Entity<SyncDestination>(e =>
         {
             e.HasIndex(x => new { x.SubscriberId, x.CompanyId, x.DocumentType, x.BranchId }).IsUnique().AreNullsDistinct(false);
+            e.HasOne(x => x.Profile).WithMany().HasForeignKey(x => new { x.SubscriberId, x.CompanyId, Id = x.ProfileId })
+                .HasPrincipalKey(x => new { x.SubscriberId, x.CompanyId, x.Id }).OnDelete(DeleteBehavior.Restrict);
+            e.HasOne<Branch>().WithMany().HasForeignKey(x => new { x.SubscriberId, x.CompanyId, Id = x.BranchId })
+                .HasPrincipalKey(x => new { x.SubscriberId, x.CompanyId, x.Id }).OnDelete(DeleteBehavior.Restrict);
+        });
+        b.Entity<SyncDestinationWindow>(e =>
+        {
+            e.HasIndex(x => new { x.SubscriberId, x.CompanyId, x.DocumentType, x.BranchId, x.Start });
             e.HasOne(x => x.Profile).WithMany().HasForeignKey(x => new { x.SubscriberId, x.CompanyId, Id = x.ProfileId })
                 .HasPrincipalKey(x => new { x.SubscriberId, x.CompanyId, x.Id }).OnDelete(DeleteBehavior.Restrict);
             e.HasOne<Branch>().WithMany().HasForeignKey(x => new { x.SubscriberId, x.CompanyId, Id = x.BranchId })

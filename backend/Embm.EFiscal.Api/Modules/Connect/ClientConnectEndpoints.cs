@@ -9,7 +9,7 @@ using static Embm.EFiscal.Api.Modules.Connect.ConnectorRules;
 namespace Embm.EFiscal.Api.Modules.Connect;
 
 internal sealed record BindConnection(Guid VersionId, string? Proof, string? ResourceId, string? Name, Guid? BranchId);
-internal sealed record MappingInput(Guid CustomerId, Guid ItemId, Guid UnitId, int ExpectedVersion);
+internal sealed record MappingInput(Guid CustomerId, Guid ItemId, Guid UnitId, int ExpectedVersion, Guid? ShippingItemId = null, Guid? SellerDiscountGroupId = null);
 internal sealed record TestConnection(string? Scenario);
 internal sealed record ReauthorizeConnection(string? Proof);
 
@@ -202,7 +202,7 @@ internal static partial class ClientConnectEndpoints
         if (link is null || !MockAccess(http) || adapters.Get(link.Version.Adapter) is not { } adapter)
             return TenantAccess.Missing();
         var prior = await db.ConnectionMappings.AsNoTracking().Where(x => x.ConnectionId == id && x.SubscriberId == subscriber && x.CompanyId == company)
-            .OrderByDescending(x => x.Number).Take(25).Select(x => new { x.Number, x.CustomerId, x.ItemId, x.UnitId, x.CreatedAt }).ToArrayAsync(ct);
+            .OrderByDescending(x => x.Number).Take(25).Select(x => new { x.Number, x.CustomerId, x.ItemId, x.UnitId, x.ShippingItemId, x.SellerDiscountGroupId, x.CreatedAt }).ToArrayAsync(ct);
         return Results.Ok(new { currentVersion = link.MappingVersion, template = "Synthetic source order v1", fields = adapter.Fields, versions = prior });
     }
 
@@ -221,8 +221,18 @@ internal static partial class ClientConnectEndpoints
         var item = await master.SingleAsync(x => x.Id == input.ItemId, ct);
         if (item.Data.Ref("unit") != input.UnitId)
             return ApiSupport.Invalid("unitId", "Use the company item’s base unit for the synthetic order map.");
+        if (input.ShippingItemId.HasValue || input.SellerDiscountGroupId.HasValue)
+        {
+            if (!MockAccess(http) || link.ResourceType != "Store" || adapter.Key != "mock-commerce" ||
+                input.ShippingItemId is not Guid shipping || input.SellerDiscountGroupId is not Guid discount ||
+                shipping == input.ItemId) return TenantAccess.Missing();
+            var service = await master.SingleOrDefaultAsync(x => x.Id == shipping && x.Kind == "items", ct);
+            if (service?.Data.Str("itemType") != "Services" || !await master.AnyAsync(x => x.Id == discount && x.Kind == "discount-groups", ct))
+                return ApiSupport.Invalid("shippingItemId", "Choose a distinct active shipping service and commercial discount group.");
+        }
         var mapping = new ConnectionMapping { SubscriberId = subscriber, CompanyId = company, ConnectionId = id,
             Number = input.ExpectedVersion + 1, CustomerId = input.CustomerId, ItemId = input.ItemId, UnitId = input.UnitId,
+            ShippingItemId = input.ShippingItemId, SellerDiscountGroupId = input.SellerDiscountGroupId,
             FieldMetadata = Freeze(adapter.Fields), CreatedBy = http.UserId() };
         db.ConnectionMappings.Add(mapping);
         link.MappingVersion = mapping.Number;

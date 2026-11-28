@@ -104,10 +104,10 @@ function CoverageEditor({ base, selected, history }: { base: string; selected: s
     {draft && <div className="connect-stack">
       <h3>Activate draft v{draft.number}</h3><p>{draft.start} to {draft.end ?? 'open'} · {status(draft.mode)}</p>
       {draft.mode === 'FullCoverage' && mode !== 'FullCoverage' && <p className="reconciliation-warning">Eligible accounting records in this period may be reported as missing eFiscal records.</p>}
-      <Field id="coverage-effective" label="Effective timestamp (optional)"><Input id="coverage-effective" type="datetime-local" value={effective} onChange={e => setEffective(e.target.value)} /></Field>
+      <Field id="coverage-effective" label="Manila effective date and time (optional)"><Input id="coverage-effective" type="datetime-local" value={effective} onChange={e => setEffective(e.target.value)} /></Field>
       <label className="connect-check"><input type="checkbox" checked={confirmed} onChange={e => setConfirmed(e.target.checked)} />I confirm this coverage period and issuance scope</label>
       <div><Button type="button" disabled={!confirmed || actions.busy} onClick={() => void actions.run(async () => {
-        await api(base + '/coverage/' + draft.id + '/activate', 'POST', { confirm: confirmed, effectiveAt: effective ? new Date(effective).toISOString() : null })
+        await api(base + '/coverage/' + draft.id + '/activate', 'POST', { confirm: confirmed, effectiveAt: effective ? new Date(effective + '+08:00').toISOString() : null })
         await refresh()
       }, 'Coverage activated')}>Activate coverage</Button></div>
     </div>}

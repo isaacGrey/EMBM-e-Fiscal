@@ -11,13 +11,30 @@ internal sealed class AccountingRouting(EfiscalDbContext db, ConnectionRuntime r
     public async Task Pin(FiscalDocument document, DocumentOutboxMessage message, DocumentProcessing state, bool automatic, CancellationToken ct)
     {
         if (!document.DevelopmentFixture) return;
-        var route = await db.SyncDestinations.AsNoTracking().Include(x => x.Profile).ThenInclude(x => x.Connection)
-            .Where(x => x.SubscriberId == document.SubscriberId && x.CompanyId == document.CompanyId && x.DocumentType == document.Type
-                && (x.BranchId == null || x.BranchId == document.BranchId))
-            .OrderByDescending(x => x.BranchId.HasValue).FirstOrDefaultAsync(ct);
-        if (route is null) return;
-        if (!route.Enabled || automatic && !route.Automatic) { Update("NotConfigured"); return; }
-        var profile = route.Profile;
+        var windows = db.SyncDestinationWindows.AsNoTracking().Where(x => x.SubscriberId == document.SubscriberId &&
+            x.CompanyId == document.CompanyId && x.DocumentType == document.Type && (x.BranchId == null || x.BranchId == document.BranchId));
+        MappingProfile profile;
+        string scenario;
+        if (await windows.AnyAsync(ct))
+        {
+            var window = await windows.Include(x => x.Profile).ThenInclude(x => x.Connection)
+                .SingleOrDefaultAsync(x => x.ApprovedAt <= document.CommittedAt && x.Start <= document.Date &&
+                    (x.End == null || x.End >= document.Date), ct);
+            if (window is null || automatic && !window.Automatic) { Update("NotConfigured"); return; }
+            profile = window.Profile;
+            scenario = "Normal";
+        }
+        else
+        {
+            var route = await db.SyncDestinations.AsNoTracking().Include(x => x.Profile).ThenInclude(x => x.Connection)
+                .Where(x => x.SubscriberId == document.SubscriberId && x.CompanyId == document.CompanyId && x.DocumentType == document.Type
+                    && (x.BranchId == null || x.BranchId == document.BranchId))
+                .OrderByDescending(x => x.BranchId.HasValue).FirstOrDefaultAsync(ct);
+            if (route is null) return;
+            if (!route.Enabled || automatic && !route.Automatic) { Update("NotConfigured"); return; }
+            profile = route.Profile;
+            scenario = route.Scenario;
+        }
         if (profile.Disabled || profile.ActiveVersion is not int number) { Update("AwaitingMapping"); return; }
         var provider = await runtime.Active(document.SubscriberId, document.CompanyId, profile.ConnectionId, [profile.Operation], false, ct);
         if (provider is null || provider.Connection.ResourceType != "CompanyFile" || provider.Connection.BranchId is Guid branch && branch != document.BranchId)
@@ -30,7 +47,7 @@ internal sealed class AccountingRouting(EfiscalDbContext db, ConnectionRuntime r
             && x.Direction == FieldMapper.Response && x.ActiveVersion != null && !x.Disabled, ct);
         db.SyncOperations.Add(new SyncOperation { Id = message.Id, SubscriberId = document.SubscriberId, CompanyId = document.CompanyId,
             DocumentId = document.Id, ConnectionId = profile.ConnectionId, ConnectorVersionId = profile.Connection.ConnectorVersionId,
-            ProfileId = profile.Id, MappingNumber = number, Scenario = route.Scenario,
+            ProfileId = profile.Id, MappingNumber = number, Scenario = scenario,
             ResponseProfileId = response?.Id, ResponseMappingNumber = response?.ActiveVersion });
         message.State = "Pending";
         message.AvailableAt = DateTimeOffset.UtcNow;

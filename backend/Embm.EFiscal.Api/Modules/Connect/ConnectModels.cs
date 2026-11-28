@@ -79,6 +79,8 @@ internal sealed class ConnectionMapping
     public Guid CustomerId { get; set; }
     public Guid ItemId { get; set; }
     public Guid UnitId { get; set; }
+    public Guid? ShippingItemId { get; set; }
+    public Guid? SellerDiscountGroupId { get; set; }
     public JsonElement FieldMetadata { get; set; }
     public Guid CreatedBy { get; set; }
     public DateTimeOffset CreatedAt { get; set; } = DateTimeOffset.UtcNow;

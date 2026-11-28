@@ -887,6 +887,189 @@ test.describe('PostgreSQL identity and onboarding', () => {
     expect(faults).toEqual([])
   })
 
+  test('Phase 9 recovers historical coverage, accounting references and marketplace issuance', async ({ page, browser }, info) => {
+    test.setTimeout(150_000)
+    const faults: string[] = []
+    page.on('pageerror', error => faults.push(error.message))
+    page.on('response', response => { if (response.status() >= 500) faults.push(response.url() + ': ' + response.status()) })
+    await register(page, 'phase9-' + suffix() + '@example.test', randomUUID(), 'b2b')
+    await page.getByRole('button', { name: 'Continue to checkout' }).click()
+    await page.getByRole('button', { name: 'Simulate successful payment' }).click()
+    await page.getByRole('link', { name: 'Open client workspace' }).click()
+    await createCompany(page, 'RECON9', 'Synthetic Reconciliation Company')
+    async function read(path: string) {
+      const response = await page.request.get(path)
+      expect(response.ok(), await response.text()).toBeTruthy()
+      return response.json()
+    }
+    const { subscriberId, companyId, branchId } = (await read('/api/workspace')).active
+    const company = '/api/workspace/' + subscriberId + '/companies/' + companyId
+    const wallet = '/api/billing/subscribers/' + subscriberId + '/summary'
+    const before = (await read(wallet)).wallet.available
+    const token = (await read('/api/auth/csrf')).token
+    async function mutate(path: string, data: object, method = 'POST') {
+      const response = await page.request.fetch(path, { data, method, headers: { 'X-EFiscal-CSRF': token } })
+      expect(response.ok(), await response.text()).toBeTruthy()
+      return response.status() === 204 ? null : response.json()
+    }
+    const master = company + '/master-data/'
+    const add = async (kind: string, code: string, data: object) => (await mutate(master + kind, { code, name: code, active: true, data })).id
+    const unit = await add('units', 'EA', { symbol: 'ea' })
+    const taxGroup = await add('tax-groups', 'VAT', { classification: 'VATable', treatment: 'Exclusive', rounding: 'HalfAway',
+      effectiveFrom: '2026-01-01', companyAuthorized: true, authority: 'PH-NIRC-STANDARD-VAT',
+      components: [{ kind: 'VAT', basis: 'NetSales', rate: '12' }] })
+    const item = await add('items', 'SERVICE', { itemType: 'Services', unit, price: '100', taxGroup })
+    const shippingItemId = await add('items', 'SHIPPING', { itemType: 'Services', unit, price: '25', taxGroup })
+    const sellerDiscountGroupId = await add('discount-groups', 'SELLER5', { category: 'Commercial', method: 'Fixed', amount: '5', scope: 'Line',
+      priority: '10', combination: 'Stackable', taxTreatment: 'ReduceBase', effectiveFrom: '2026-01-01' })
+    const customer = await add('customers', 'BUYER', { classification: 'Corporate', registeredName: 'Synthetic buyer', email: 'buyer@example.test' })
+    await mutate(company + '/configuration/sender', { expectedRevision: 0, profile: {
+      senderName: 'Synthetic Seller', senderEmail: 'seller@example.test', provider: 'platform', cc: [], bcc: [],
+    } }, 'PUT')
+    for (const [kind, prefix] of [['SalesInvoice', 'SI-'], ['CreditMemo', 'CM-']])
+      await mutate(company + '/documents/numbering/' + kind, { effectiveFrom: '2026-01-01', prefix, digits: 6, initialNumber: 1, expectedRevision: 0 })
+
+    const connect = company + '/connect'
+    const reconciliation = connect + '/reconciliation'
+    async function bind(code: string, resourceId: string, mapping = {}) {
+      const auth = await mutate(connect + '/catalog/' + code + '/authorize', {})
+      const link = await mutate(connect + '/connections', { versionId: auth.versionId, proof: auth.proof, resourceId, name: resourceId, branchId })
+      const endpoint = connect + '/connections/' + link.id
+      await mutate(endpoint + '/test', { scenario: 'success' })
+      await mutate(endpoint + '/mapping', { customerId: customer, itemId: item, unitId: unit, expectedVersion: 0, ...mapping }, 'PUT')
+      await mutate(endpoint + '/activate', {})
+      return { id: link.id, endpoint }
+    }
+    const previous = await bind('development-accounting', 'sample-company-mnl')
+    const current = await bind('development-accounting', 'sample-company-ceb')
+    const store = await bind('development-commerce', 'sample-store-mnl', { shippingItemId, sellerDiscountGroupId })
+    await mutate(current.endpoint + '/references', { kind: 'Item', localKey: shippingItemId, externalId: 'DEMO-SHIPPING' }, 'PUT')
+    const defaults = (await read(connect + '/mapping-fields/Outbound')).defaults
+    async function outbound(connectionId: string, documentType: string) {
+      const path = connect + '/mapping-profiles'
+      const profile = await mutate(path, { connectionId, documentType, name: documentType + ' fixture', direction: 'Outbound' })
+      const rules = defaults.map((rule: { target: string; operation: string }) =>
+        rule.target === 'item' ? { ...rule, operation: 'reference' } : rule)
+      await mutate(path + '/' + profile.id + '/versions', { rules, expectedVersion: 0 })
+      await mutate(path + '/' + profile.id + '/activate', { version: 1 })
+      return profile.id
+    }
+    const prevMapping = await outbound(previous.id, 'SalesInvoice')
+    const currentMapping = await outbound(current.id, 'SalesInvoice')
+    const creditMapping = await outbound(previous.id, 'CreditMemo')
+    const integration = '/portal/client/integrations'
+    await page.goto(integration + '/synchronization')
+    for (const [profile, start, end] of [[prevMapping, '2026-01-01', '2026-10-31'], [currentMapping, '2026-11-01', '']]) {
+      await page.getByLabel('Destination branch').selectOption(branchId)
+      await page.getByLabel('Outbound mapping profile').selectOption(profile)
+      await page.getByLabel('Destination start date (optional)').fill(start)
+      await page.getByLabel('Destination end date (optional)').fill(end)
+      await page.getByLabel('Destination change reason').fill('Approved synthetic cutover')
+      await page.getByRole('checkbox', { name: 'Approve inclusive destination window' }).check()
+      await page.getByRole('button', { name: 'Approve destination window' }).click()
+      await expect(page.getByRole('status')).toContainText('Destination window approved')
+    }
+    await expect(page.getByRole('region', { name: 'Accounting destination history' })).toContainText('2026-10-31')
+    await mutate(connect + '/accounting/destinations', { profileId: creditMapping, branchId,
+      documentType: 'CreditMemo', enabled: true, automatic: true }, 'PUT')
+
+    const workspace = '/portal/client/reconciliation'
+    await page.goto(integration + '/reconciliation-settings')
+    await page.getByLabel('Accounting connection', { exact: true }).selectOption(previous.id)
+    await page.getByLabel('Intended eFiscal adoption date').fill('2027-01-01')
+    await page.getByLabel('Reconciliation end date').fill('2027-01-10')
+    await page.getByLabel('Coverage mode').selectOption('FullCoverage')
+    await page.getByLabel('Configuration reason').fill('Verify adoption coverage')
+    await page.getByRole('button', { name: 'Preview coverage' }).click()
+    await expect(page.getByText('No overlap found')).toBeVisible()
+    async function activateCoverage(version: number) {
+      await page.getByRole('button', { name: 'Save coverage draft' }).click()
+      await page.getByRole('checkbox', { name: /I confirm this coverage/ }).check()
+      await page.getByRole('button', { name: 'Activate coverage' }).click()
+      const versionRow = page.getByRole('region', { name: 'Coverage versions' }).getByRole('row')
+        .filter({ has: page.getByRole('cell', { name: 'v' + version, exact: true }) })
+      await expect(versionRow.getByRole('cell', { name: 'Active', exact: true })).toBeVisible()
+    }
+    await activateCoverage(1)
+    async function discover() {
+      const job = await mutate(reconciliation + '/jobs', { connectionId: previous.id, kind: 'Discovery', from: '2026-01-01',
+        through: '2027-02-01', key: randomUUID() })
+      await expect.poll(async () => (await read(reconciliation + '/jobs')).items.find((x: { id: string }) => x.id === job.id)?.state, { timeout: 20_000 }).toBe('Completed')
+    }
+    await discover()
+    await page.goto(workspace + '/register')
+    await page.getByLabel('Reconciliation status').selectOption('HistoricalExcluded')
+    await expect(page.getByText('MOCK-MNL-HIST', { exact: true })).toBeVisible()
+    await page.goto(integration + '/reconciliation-settings')
+    await page.getByLabel('Accounting connection', { exact: true }).selectOption(previous.id)
+    await page.getByLabel('Coverage mode').selectOption('EfiscalOnly')
+    await page.getByLabel('Configuration reason').fill('Verify eFiscal-only mode')
+    await activateCoverage(2)
+    await discover()
+    expect((await read(reconciliation + '/overview')).missingEfiscal).toBe(0)
+
+    async function retrieve(type: string, number: string, action: string) {
+      await page.goto(workspace + '/references')
+      await page.getByLabel('Historical accounting connection').selectOption(previous.id)
+      await page.getByLabel('Historical document type').selectOption(type)
+      await page.getByRole('button', { name: number, exact: true }).click()
+      await page.getByLabel('Retrieval purpose').fill('Authorized synthetic source review')
+      await page.getByRole('button', { name: 'Record historical evidence' }).click()
+      await page.getByRole('link', { name: action }).click()
+    }
+    await retrieve('SalesOrder', 'EXT-SO-MNL-1003', 'Open invoice form from historical Sales Order')
+    await expect(page.getByText('EXT-SO-MNL-1003', { exact: false }).first()).toBeVisible()
+    await expect(page.getByLabel('Quantity for line 1', { exact: true })).toHaveValue('2')
+    await retrieve('SalesInvoice', 'MOCK-MNL-HIST', 'Open Credit Memo from historical Sales Invoice')
+    await expect(page.getByText(/Remaining eligible quantity 1.5/)).toBeVisible()
+    await page.getByLabel('Adjustment reason').fill('Approved historical return')
+    await page.getByLabel('Quantity for line 1', { exact: true }).fill('1')
+
+    async function saveDocument() {
+      await page.getByLabel('Document date').fill('2026-11-15')
+      await page.getByRole('button', { name: 'Calculate totals' }).click()
+      await expect(page.getByRole('heading', { name: 'Calculated document totals' })).toBeVisible()
+      await page.getByRole('button', { name: 'Save & Send', exact: true }).click()
+      await page.getByRole('button', { name: 'Confirm Save & Send' }).click()
+      await expect(page).toHaveURL(/\/documents\/(CreditMemo|SalesInvoice)\/[0-9a-f-]{36}$/)
+      return page.url().split('/').pop()!
+    }
+    await saveDocument()
+    await mutate(store.endpoint + '/import-orders', {})
+    const orders = (await read(connect + '/source-orders')).items
+    const key = orders.find((x: { status: string }) => x.status === 'Paid').key
+    await page.goto('/portal/client/documents/SalesInvoice/new?externalSource=' + encodeURIComponent(key))
+    await expect(page.getByText('Invoice total PHP 582.4 · Marketplace settlement PHP 562.4')).toBeVisible()
+    const invoice = await saveDocument()
+    expect((await read(wallet)).wallet.available).toBe(before - 2)
+    await expect.poll(async () => (await read(connect + '/accounting/jobs/' + invoice)).status, { timeout: 20_000 }).toBe('Synchronized')
+    async function check(scenario: string, status: string) {
+      await mutate(reconciliation + '/development/' + invoice + '/external-revision', { scenario })
+      await mutate(reconciliation + '/jobs', { documentId: invoice, key: randomUUID() })
+      await expect.poll(async () => (await read(reconciliation + '/documents/' + invoice)).items[0]?.status, { timeout: 20_000 }).toBe(status)
+      return (await read(reconciliation + '/documents/' + invoice)).items[0].id
+    }
+    const mismatch = await check('Vat', 'TaxMismatch')
+    await page.goto(workspace + '/comparison/' + mismatch)
+    await expect(page.getByRole('heading', { name: 'Side-by-side comparison' })).toBeVisible()
+    await page.getByText('Tax Mismatch · vat · Open', { exact: true }).click()
+    await page.getByLabel('Investigation note').fill('Verified variance in independent accounting readback.')
+    await page.getByRole('button', { name: 'Save investigation event' }).click()
+    await expect(page.getByRole('status')).toContainText('Review event saved')
+    await check('Exact', 'Matched')
+    await page.reload()
+    await expect(page.getByText(/Resolved After Verification/).first()).toBeVisible()
+    await page.goto(workspace + '/reports')
+    await expect(page.getByRole('link', { name: 'Export CSV' })).toBeVisible()
+    expect((await page.request.get(reconciliation + '/reports/xlsx')).ok()).toBeTruthy()
+    const outsider = await browser.newContext({ baseURL: info.project.use.baseURL })
+    try {
+      expect((await outsider.request.get(reconciliation + '/register')).status()).toBe(401)
+    } finally { await outsider.close() }
+    expect(faults).toEqual([])
+    await capture(page, info.project.name + '-phase9-reconciliation')
+  })
+
   test('individual registration and password recovery', async ({ page }, info) => {
     const email = 'individual-' + suffix() + '@example.test'
     await register(page, email, randomUUID(), 'b2c')

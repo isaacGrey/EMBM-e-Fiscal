@@ -35,8 +35,8 @@ export function DocumentsWorkspace({ base, companyPath, section, branch }: { bas
   if (options.isPending) return <LoadingState label="Loading document options…" />
   if (options.isError) return <ErrorState>{errorMessage(options.error)}</ErrorState>
   if (selected === 'new') return options.data.canWrite
-    ? <DocumentForm key={base + type + (params.get('externalSource') ?? '')} base={base} master={companyPath + '/master-data'} type={type} options={options.data}
-      branch={branch} source={params.get('source') ?? ''} externalKey={params.get('externalSource') ?? ''} onCommitted={doc => navigate(documentsRoot + '/' + doc.type + '/' + doc.id, { replace: true })} />
+    ? <DocumentForm key={base + type + (params.get('externalSource') ?? '') + (params.get('historicalInvoice') ?? '')} base={base} master={companyPath + '/master-data'} type={type} options={options.data}
+      branch={branch} source={params.get('source') ?? ''} externalKey={params.get('externalSource') ?? ''} historicalReference={params.get('historicalInvoice') ?? ''} onCommitted={doc => navigate(documentsRoot + '/' + doc.type + '/' + doc.id, { replace: true })} />
     : <ErrorState>Document creation is unavailable for this role.</ErrorState>
   if (selected) return <DocumentViewer key={selected} base={base} type={type} id={selected} options={options.data} />
   return <Register key={base + type} base={base} master={companyPath + '/master-data'} type={type} options={options.data} />

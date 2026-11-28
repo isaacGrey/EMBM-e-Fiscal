@@ -7,6 +7,8 @@ using static Embm.EFiscal.Api.Modules.Connect.ConnectorRules;
 namespace Embm.EFiscal.Api.Modules.Connect;
 
 internal sealed record SyncDestinationInput(Guid ProfileId, Guid? BranchId, string DocumentType, bool Enabled, bool Automatic, string? Scenario);
+internal sealed record SyncWindowInput(Guid ProfileId, Guid? BranchId, string DocumentType, DateOnly Start,
+    DateOnly? End, bool Automatic, bool Confirm, string? Reason, Guid? CloseWindowId = null);
 internal sealed record SyncAction(string? Mode, int? ReplacementVersion);
 
 internal static partial class ClientConnectEndpoints
@@ -15,6 +17,7 @@ internal static partial class ClientConnectEndpoints
     {
         group.MapGet("/accounting/destinations", SyncDestinations).AddEndpointFilter(Access(Manage));
         group.MapPut("/accounting/destinations", SetSyncDestination).AddEndpointFilter(Access(Manage, true));
+        group.MapPost("/accounting/destination-windows", ApproveSyncWindow).AddEndpointFilter(Access(Manage, true));
         group.MapGet("/accounting/jobs", SyncRegister).AddEndpointFilter(Access(Manage));
         group.MapGet("/accounting/jobs/{document:guid}", SyncDetail).AddEndpointFilter(Access(Permissions.CompanyView));
         group.MapPost("/accounting/jobs/{document:guid}/retry", RetrySync).AddEndpointFilter(Access(Manage, true));
@@ -27,7 +30,11 @@ internal static partial class ClientConnectEndpoints
             .OrderBy(x => x.DocumentType).ThenBy(x => x.BranchId).Take(100)
             .Select(x => new { x.Id, x.ProfileId, profile = x.Profile.Name, x.BranchId, x.DocumentType, x.Enabled, x.Automatic, x.Scenario,
                 connection = x.Profile.Connection.Name, x.Profile.Connection.ExternalResourceName, health = x.Profile.Connection.Status }).ToArrayAsync(ct);
-        return Results.Ok(new { routes, scenarios = AccountingRouting.Scenarios, documentTypes = DocumentRules.Types });
+        var windows = await db.SyncDestinationWindows.AsNoTracking().Where(x => x.SubscriberId == subscriber && x.CompanyId == company)
+            .OrderByDescending(x => x.Start).ThenBy(x => x.Id).Take(100)
+            .Select(x => new { x.Id, x.ProfileId, profile = x.Profile.Name, x.BranchId, x.DocumentType, x.Start, x.End, x.Automatic,
+                x.ApprovedBy, x.ApprovedAt, x.ClosedBy, x.ClosedAt, x.Reason, connection = x.Profile.Connection.Name }).ToArrayAsync(ct);
+        return Results.Ok(new { routes, windows, scenarios = AccountingRouting.Scenarios, documentTypes = DocumentRules.Types });
     }
 
     private static async Task<IResult> SetSyncDestination(Guid subscriber, Guid company, SyncDestinationInput input, HttpContext http, EfiscalDbContext db,
@@ -57,6 +64,53 @@ internal static partial class ClientConnectEndpoints
         route.Scenario = scenario;
         db.Audit("Accounting.DestinationConfigured", http.UserId(), subscriber, route.Id);
         return Results.Ok(new { route.Id, route.ProfileId, route.BranchId, route.DocumentType, route.Enabled, route.Automatic, route.Scenario });
+    }
+
+    private static async Task<IResult> ApproveSyncWindow(Guid subscriber, Guid company, SyncWindowInput input, HttpContext http,
+        EfiscalDbContext db, ConnectionRuntime runtime, CancellationToken ct)
+    {
+        if (!MockAccess(http) || !Grant(http).Grants.Contains(Reconciliation.Coverage.Approve) ||
+            await FindProfile(db, subscriber, company, input.ProfileId, ct) is not { } profile ||
+            profile.Direction != FieldMapper.Outbound || profile.DocumentType != input.DocumentType ||
+            profile.Connection.ResourceType != "CompanyFile") return TenantAccess.Missing();
+        var reason = SpecImport.Text(input.Reason ?? "", 300);
+        Require(input.Confirm && reason.Length > 0 && input.Start.Year >= 2000 && (input.End is null || input.End >= input.Start),
+            "Confirm the destination change and record its reason and inclusive date range.");
+        if (input.BranchId is Guid branch && !await db.Branches.AnyAsync(x => x.SubscriberId == subscriber && x.CompanyId == company && x.Id == branch, ct))
+            return TenantAccess.Missing();
+        Require(profile.Connection.BranchId is null || profile.Connection.BranchId == input.BranchId,
+            "The destination must use its bound company branch.");
+        if (profile.Disabled || profile.ActiveVersion is null ||
+            await runtime.Active(subscriber, company, profile.ConnectionId, [profile.Operation], false, ct) is null ||
+            !await db.ExecutionPolicies.AnyAsync(x => x.ConnectorVersionId == profile.Connection.ConnectorVersionId &&
+                x.Capability == profile.Operation && x.Method == "POST" && x.Path == "/v1/accounting/documents", ct))
+            return Conflict("Select an active, approved outbound mapping and connection.");
+        var now = DateTimeOffset.UtcNow;
+        if (input.CloseWindowId is Guid previous)
+        {
+            var old = await db.SyncDestinationWindows.SingleOrDefaultAsync(x => x.SubscriberId == subscriber && x.CompanyId == company &&
+                x.Id == previous && x.DocumentType == input.DocumentType && x.BranchId == input.BranchId, ct);
+            if (old is null) return TenantAccess.Missing();
+            if (old.End != null || input.Start <= old.Start || input.Start < DateOnly.FromDateTime(now.ToOffset(TimeSpan.FromHours(8)).DateTime))
+                return Conflict("Close only an open window with an authorized current or future destination change.");
+            old.End = input.Start.AddDays(-1);
+            old.ClosedBy = http.UserId();
+            old.ClosedAt = now;
+            db.Audit("Accounting.DestinationWindowClosed", http.UserId(), subscriber, old.Id);
+        }
+        if (await db.SyncDestinationWindows.AnyAsync(x => x.SubscriberId == subscriber && x.CompanyId == company &&
+            x.Id != input.CloseWindowId && x.DocumentType == input.DocumentType && (x.BranchId == null || input.BranchId == null || x.BranchId == input.BranchId) &&
+            x.Start <= (input.End ?? DateOnly.MaxValue) && (x.End == null || x.End >= input.Start), ct))
+            return Conflict("This destination overlaps another approved window for the document type and branch.");
+        var window = new SyncDestinationWindow
+        {
+            SubscriberId = subscriber, CompanyId = company, BranchId = input.BranchId, ProfileId = profile.Id,
+            DocumentType = input.DocumentType, Start = input.Start, End = input.End, Automatic = input.Automatic,
+            ApprovedBy = http.UserId(), ApprovedAt = now, Reason = reason
+        };
+        db.SyncDestinationWindows.Add(window);
+        db.Audit("Accounting.DestinationWindowApproved", http.UserId(), subscriber, window.Id);
+        return Results.Created($"destination-windows/{window.Id}", new { window.Id, window.Start, window.End });
     }
 
     private static async Task<IResult> SyncRegister(Guid subscriber, Guid company, HttpContext http, EfiscalDbContext db,

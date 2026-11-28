@@ -80,6 +80,7 @@ builder.Services.AddScoped<FinancialPreview>();
 builder.Services.AddScoped<DocumentAssembly>();
 builder.Services.AddScoped<DocumentCommitService>();
 builder.Services.AddScoped<DocumentRelationships>();
+builder.Services.AddScoped<HistoricalCreditSource>();
 builder.Services.AddScoped<DocumentSettings>();
 builder.Services.AddDataProtection();
 builder.Services.AddSingleton<DevelopmentAdapters>();

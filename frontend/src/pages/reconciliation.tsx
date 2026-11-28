@@ -209,8 +209,8 @@ function ComparisonPanel({ base, id }: { base: string; id: string }) {
         {check.documentId && canRun && <RunDocument base={base} id={check.documentId} />}</div>
       {check.documentId && canSimulate && <details><summary>Simulate an external record revision</summary>
         <div className="connect-actions"><Field id="external-revision" label="Development external record scenario"><Select id="external-revision" value={scenario} onChange={e => setScenario(e.target.value)}>
-          {['Exact', 'Vat', 'Discount', 'Customer', 'Quantity', 'Price', 'TaxClass', 'MissingLine', 'ExtraLine', 'DuplicateLine', 'Reorder', 'Unsupported',
-            'Missing', 'Duplicate', 'Unavailable', 'RateLimit', 'IncompletePagination'].map(x => <option key={x} value={x}>{status(x)}</option>)}
+          {['Exact', 'Vat', 'Discount', 'Total', 'Customer', 'Quantity', 'Price', 'TaxClass', 'MissingLine', 'ExtraLine', 'DuplicateLine', 'Reorder', 'Unsupported',
+            'Missing', 'Duplicate', 'WrongIdentity', 'Unavailable', 'RateLimit', 'IncompletePagination'].map(x => <option key={x} value={x}>{status(x)}</option>)}
         </Select></Field><Button type="button" variant="light" disabled={action.busy} onClick={() => void action.run(async () => {
           await api(base + '/development/' + check.documentId + '/external-revision', 'POST', { scenario })
           await cache.invalidateQueries({ queryKey: ['reconciliation', base] })
@@ -278,6 +278,7 @@ function ReferencePanel({ base }: { base: string }) {
   const [search, setSearch] = useState('')
   const [row, setRow] = useState<ReferenceRow>()
   const [source, setSource] = useState('')
+  const [creditSource, setCreditSource] = useState('')
   const action = useConnectAction()
   const ref = useQuery({ queryKey: ['reconciliation', base, 'references', connection, type, search], enabled: !!connection, retry: false,
     queryFn: () => api<References>(base + '/references?' + new URLSearchParams({ connection, type, search })) })
@@ -286,26 +287,27 @@ function ReferencePanel({ base }: { base: string }) {
     if (!row) return
     const purpose = new FormData(e.currentTarget).get('purpose')
     void action.run(async () => {
-      const result = await api<{ invoiceSourceKey?: string }>(base + '/references', 'POST', { connectionId: connection, type, externalId: row.id, purpose })
+      const result = await api<{ id: string; invoiceSourceKey?: string; creditMemoEligible: boolean }>(base + '/references', 'POST', { connectionId: connection, type, externalId: row.id, purpose })
       setSource(result.invoiceSourceKey ?? '')
+      setCreditSource(result.creditMemoEligible ? result.id : '')
       await ref.refetch()
     }, 'Historical evidence recorded')
   }
   return <Card className="workspace-card connect-stack"><h2>Historical accounting references</h2>
     <div className="connect-grid">
       <Field id="history-reference-connection" label="Historical accounting connection"><Select id="history-reference-connection" value={connection}
-        onChange={e => { setConnection(e.target.value); setRow(undefined); setSource('') }}><option value="">Choose an accounting connection</option>
+        onChange={e => { setConnection(e.target.value); setRow(undefined); setSource(''); setCreditSource('') }}><option value="">Choose an accounting connection</option>
         {coverage.data?.links.map(x => <option key={x.id} value={x.id}>{x.name}</option>)}</Select></Field>
       <Field id="history-reference-type" label="Historical document type"><Select id="history-reference-type" value={type}
-        onChange={e => { setType(e.target.value as ReconcileType); setRow(undefined); setSource('') }}>
+        onChange={e => { setType(e.target.value as ReconcileType); setRow(undefined); setSource(''); setCreditSource('') }}>
         {Object.entries(typeNames).map(([id, label]) => <option key={id} value={id}>{label}</option>)}</Select></Field>
       <Field id="history-reference-search" label="Search external document number"><Input id="history-reference-search" type="search" maxLength={80}
-        value={search} onChange={e => { setSearch(e.target.value); setRow(undefined); setSource('') }} /></Field>
+        value={search} onChange={e => { setSearch(e.target.value); setRow(undefined); setSource(''); setCreditSource('') }} /></Field>
     </div>
     {ref.isError && <ErrorState>{errorMessage(ref.error)}</ErrorState>}
     {connection && ref.isPending && <LoadingState label="Retrieving authorized references…" />}
     {ref.data && <><ScrollTable name="Historical references"><thead><tr><th>External number</th><th>Date</th><th>Source status</th></tr></thead>
-      <tbody>{ref.data.items.map(x => <tr key={x.id}><td><Button type="button" variant="light" onClick={() => { setRow(x); setSource('') }}>{x.number}</Button></td>
+      <tbody>{ref.data.items.map(x => <tr key={x.id}><td><Button type="button" variant="light" onClick={() => { setRow(x); setSource(''); setCreditSource('') }}>{x.number}</Button></td>
         <td>{x.date}</td><td>{status(x.status)}</td></tr>)}</tbody></ScrollTable>
       {type === 'SalesInvoice' && <p>{ref.data.creditMemoEligibility}</p>}
       {!!ref.data.saved.length && <details><summary>Recorded reference evidence</summary><ul>{ref.data.saved.map(x =>
@@ -313,6 +315,7 @@ function ReferencePanel({ base }: { base: string }) {
     {row && <form className="connect-stack" onSubmit={retrieve}><h3>{row.number}</h3>
       <Field id="historical-purpose" label="Retrieval purpose"><Input id="historical-purpose" name="purpose" maxLength={300} required /></Field>
       <div><Button type="submit" disabled={action.busy}>Record historical evidence</Button></div></form>}
+    {creditSource && <Link className="text-link" to={'/portal/client/documents/CreditMemo/new?historicalInvoice=' + encodeURIComponent(creditSource)}>Open Credit Memo from historical Sales Invoice</Link>}
     {source && <Link className="text-link" to={invoiceFromSource(source)}>Open invoice form from historical Sales Order</Link>}
     {action.error && <ErrorState>{action.error}</ErrorState>}{action.notice && <p role="status">{action.notice}</p>}
   </Card>

@@ -2,13 +2,16 @@ import { useState, type FormEvent } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
 import { Badge, Button, Card, ErrorState, Field, Input, LoadingState, Select } from '@/components/ui'
-import { api, errorMessage, manilaTimestamp, type Branch } from '@/lib/account-api'
+import { api, errorMessage, manilaDate, manilaTimestamp, type Branch } from '@/lib/account-api'
 import { connectRoot, type Connection } from '@/lib/connect-api'
 import { documentKinds, documentKindLabels, pretty, type AccountingJob, type Destination, type DocumentKind, type JobDetails, type MappingProfile } from '@/lib/mapping-api'
 import { ScrollTable } from './connect'
 import { useConnectAction } from './field-mapping'
 
 const root = connectRoot + '/synchronization'
+type DestinationWindow = { id: string; documentType: DocumentKind; branchId: string | null; connection: string;
+  start: string; end: string | null; approvedAt: string; closedAt: string | null; automatic: boolean; reason: string }
+
 const activeStatuses = ['Queued', 'Processing', 'Submitted', 'AwaitingConfirmation', 'RetryScheduled']
 const statuses = ['NotApplicable', 'NotConfigured', 'AwaitingConnection', 'AwaitingMapping', ...activeStatuses,
   'Synchronized', 'Failed', 'RequiresReview', 'UncertainExternalOutcome']
@@ -65,19 +68,28 @@ function DestinationSettings({ base, branches }: { base: string; branches: Branc
   const [enabled, setEnabled] = useState(true)
   const [automatic, setAutomatic] = useState(true)
   const [scenario, setScenario] = useState('Normal')
+  const [window, setWindow] = useState({ start: '', end: '', reason: '', confirm: false, closeWindowId: '' })
   const cache = useQueryClient()
   const actions = useConnectAction()
   const path = base + '/accounting/destinations'
-  const routes = useQuery({ queryKey: ['accounting-sync', base, 'destinations'], queryFn: () => api<{ routes: Destination[]; scenarios: string[] }>(path), retry: false })
+  const routes = useQuery({ queryKey: ['accounting-sync', base, 'destinations'], queryFn: () => api<{ routes: Destination[]; windows: DestinationWindow[]; scenarios: string[] }>(path), retry: false })
   const options = useQuery({ queryKey: ['field-mapping', base], queryFn: () => api<{ items: MappingProfile[] }>(base + '/mapping-profiles'), retry: false })
   if (routes.isPending || options.isPending) return <LoadingState label="Loading destinations…" />
   if (routes.isError || options.isError) return <ErrorState>{errorMessage(routes.error ?? options.error)}</ErrorState>
   function save(event: FormEvent) {
     event.preventDefault()
     void actions.run(async () => {
-      await api(path, 'PUT', { documentType: type, branchId: branch || null, profileId: profile, enabled, automatic, scenario })
+      const scope = { documentType: type, branchId: branch || null, profileId: profile, automatic }
+      if (window.start) {
+        await api(base + '/accounting/destination-windows', 'POST', {
+          ...scope, ...window, end: window.end || null, closeWindowId: window.closeWindowId || null,
+        })
+        setWindow({ start: '', end: '', reason: '', confirm: false, closeWindowId: '' })
+      } else {
+        await api(path, 'PUT', { ...scope, enabled, scenario })
+      }
       await cache.invalidateQueries({ queryKey: ['accounting-sync', base] })
-    }, 'Accounting destination saved')
+    }, window.start ? 'Destination window approved' : 'Accounting destination saved')
   }
   return <Card className="workspace-card connect-stack"><h2>Accounting destinations</h2>
     <p>Choose one destination for each document type and branch scope. A branch rule takes precedence over the company default.</p>
@@ -87,6 +99,13 @@ function DestinationSettings({ base, branches }: { base: string; branches: Branc
         <td>{route.enabled ? route.automatic ? 'Automatic' : 'Manual' : 'Disabled'} <Button type="button" variant="light" onClick={() => {
           setType(route.documentType); setBranch(route.branchId ?? ''); setProfile(route.profileId); setEnabled(route.enabled); setAutomatic(route.automatic); setScenario(route.scenario)
         }}>Edit</Button></td></tr>)}</tbody></ScrollTable>}
+    {routes.data.windows.length > 0 && <ScrollTable name="Accounting destination history"><thead><tr>
+      <th>Document type</th><th>Branch</th><th>Destination</th><th>From</th><th>Through</th><th>State</th><th>Approval reason</th>
+    </tr></thead><tbody>{routes.data.windows.map(row => <tr key={row.id}>
+      <td>{documentKindLabels[row.documentType]}</td><td>{branches.find(x => x.id === row.branchId)?.name ?? 'Company-wide'}</td>
+      <td>{row.connection}</td><td>{row.start}</td><td>{row.end ?? 'Open-ended'}</td>
+      <td>{row.start > manilaDate() ? 'Future' : row.end && row.end < manilaDate() ? 'Previous' : 'Active'}</td><td>{row.reason}</td>
+    </tr>)}</tbody></ScrollTable>}
     <form className="connect-stack" onSubmit={save}><div className="connect-grid">
       <Field id="destination-type" label="Destination document type"><Select id="destination-type" value={type} onChange={e => { setType(e.target.value as DocumentKind); setProfile('') }}>
         {documentKinds.map(x => <option key={x} value={x}>{documentKindLabels[x]}</option>)}</Select></Field>
@@ -95,12 +114,28 @@ function DestinationSettings({ base, branches }: { base: string; branches: Branc
       <Field id="destination-profile" label="Outbound mapping profile"><Select id="destination-profile" required value={profile} onChange={e => setProfile(e.target.value)}>
         <option value="">Choose a profile</option>{options.data.items.filter(x => x.direction === 'Outbound' && x.documentType === type).map(x =>
           <option key={x.id} value={x.id}>{x.name} · {x.connectionName}</option>)}</Select></Field>
+      <Field id="destination-start" label="Destination start date (optional)"><Input id="destination-start" type="date"
+        value={window.start} onChange={e => setWindow({ ...window, start: e.target.value })} /></Field>
+      {window.start ? <>
+        <Field id="destination-end" label="Destination end date (optional)"><Input id="destination-end" type="date" min={window.start}
+          value={window.end} onChange={e => setWindow({ ...window, end: e.target.value })} /></Field>
+        <Field id="destination-close" label="Open window to close (optional)"><Select id="destination-close" value={window.closeWindowId}
+          onChange={e => setWindow({ ...window, closeWindowId: e.target.value })}><option value="">Keep existing windows</option>
+          {routes.data.windows.filter(x => !x.end && x.documentType === type && (x.branchId ?? '') === branch).map(x =>
+            <option key={x.id} value={x.id}>{x.connection} · {x.start}</option>)}
+        </Select></Field>
+        <Field id="destination-reason" label="Destination change reason"><Input id="destination-reason" required maxLength={300}
+          value={window.reason} onChange={e => setWindow({ ...window, reason: e.target.value })} /></Field>
+        <label className="connect-check"><input type="checkbox" required checked={window.confirm}
+          onChange={e => setWindow({ ...window, confirm: e.target.checked })} /> Approve inclusive destination window</label>
+      </> : <>
       <Field id="destination-scenario" label="Development synchronization scenario"><Select id="destination-scenario" value={scenario} onChange={e => setScenario(e.target.value)}>
         {routes.data.scenarios.map(x => <option key={x} value={x}>{pretty(x)}</option>)}</Select></Field>
       <label className="connect-check"><input type="checkbox" checked={enabled} onChange={e => setEnabled(e.target.checked)} /> Enable destination</label>
+      </>}
       <label className="connect-check"><input type="checkbox" checked={automatic} onChange={e => setAutomatic(e.target.checked)} /> Synchronize automatically</label>
     </div>{actions.error && <ErrorState>{actions.error}</ErrorState>}{actions.notice && <p role="status">{actions.notice}</p>}
-      <div className="connect-actions"><Button type="submit" disabled={!profile || actions.busy}>Save accounting destination</Button>
+      <div className="connect-actions"><Button type="submit" disabled={!profile || actions.busy}>{window.start ? 'Approve destination window' : 'Save accounting destination'}</Button>
         <Link className="text-link" to={connectRoot + '/field-mapping'}>Open Field Mapping</Link></div>
     </form>
   </Card>

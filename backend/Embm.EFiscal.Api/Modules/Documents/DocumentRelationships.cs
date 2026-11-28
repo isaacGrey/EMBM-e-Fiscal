@@ -5,10 +5,10 @@ using static Embm.EFiscal.Api.Modules.MasterData.MasterRegistry;
 
 namespace Embm.EFiscal.Api.Modules.Documents;
 
-internal record ExternalOrderLine(string Key, Guid ItemId, Guid UnitId, decimal Quantity, decimal Factor);
+internal record ExternalOrderLine(string Key, Guid ItemId, Guid UnitId, decimal Quantity, decimal Factor, decimal PreviouslyInvoiced = 0);
 internal record ExternalOrder(string Key, string Number, string Connector, string Account, string RecordId, DateTimeOffset SourceAt,
     Guid CustomerId, ExternalOrderLine[] Lines, bool Partial, string Currency = "PHP", Guid? BranchId = null,
-    string? FinancialReview = null);
+    string? FinancialReview = null, string? ExternalCompany = null, MarketplaceInvoiceTerms? Marketplace = null);
 internal interface IExternalSalesOrderProvider
 {
     Task<ExternalOrder?> Find(Guid subscriber, Guid company, string key, CancellationToken ct);
@@ -108,40 +108,74 @@ internal sealed class DocumentRelationships(EfiscalDbContext db, IExternalSalesO
         return allocations.ToArray();
     }
 
-    public async Task<DocumentAllocation[]> CreditInvoice(FiscalDocument document, DocumentInput input, FiscalDocument original,
-        CancellationToken ct)
+    public readonly record struct PriorCredit(decimal Quantity, decimal Total, decimal Gross, decimal Discount,
+        decimal Taxable, decimal Exempt, decimal ZeroRated, decimal NonVat, decimal Vat);
+
+    public async Task<PriorCredit[]> HistoricalCredits(Guid subscriber, Guid company, HistoricalCreditOriginal original, CancellationToken ct)
+    {
+        var local = await (from allocation in db.DocumentAllocations.AsNoTracking()
+            join line in db.FiscalDocumentLines.AsNoTracking() on
+                new { allocation.SubscriberId, allocation.CompanyId, Id = allocation.LineId } equals
+                new { line.SubscriberId, line.CompanyId, line.Id }
+            where allocation.SubscriberId == subscriber && allocation.CompanyId == company &&
+                allocation.Kind == "CreditHistoricalInvoice" && allocation.ExternalOrderKey == original.AllocationKey &&
+                allocation.ExternalLineKey == original.LineKey
+            select line).ToArrayAsync(ct);
+        return [..local.Select(CreditTotals), ..original.Adjustments.Select(x =>
+            new PriorCredit(x.Quantity, x.Total, x.Gross, x.Discount, x.Taxable, 0m, 0m, 0m, x.Vat))];
+    }
+
+    private static PriorCredit CreditTotals(FiscalDocumentLine x) => new(x.Quantity, x.Total, x.Gross, x.CommercialDiscount,
+        x.VatableSales, x.ExemptSales, x.ZeroRatedSales, x.NonVatSales, x.Vat);
+
+    public async Task<DocumentAllocation[]> CreditInvoice(FiscalDocument document, DocumentInput input, FiscalDocument? original,
+        HistoricalCreditOriginal? historical, CancellationToken ct)
     {
         Need(input.AdjustmentKind is "Return" or "PriceAdjustment" && ApiSupport.Text(input.AdjustmentReason, 500),
             "adjustmentReason", "Choose a supported adjustment type and provide a reason.");
-        Need(input.CustomerId is null || input.CustomerId == original.CustomerId, "customerId", "Use the customer from the original invoice.");
-        Need(input.Currency is null || input.Currency == original.Currency, "currency", "Use the original invoice currency.");
-        Need(original.Date <= input.Date, "date", "The Credit Memo cannot precede the original invoice.");
-        Need(input.PriceListId is null && input.DocumentDiscountIds is null or { Length: 0 }, "lines", "Credit adjustments use only the committed invoice terms.");
-        var sourceIds = input.Lines!.Select(x => x.SourceLineId).ToArray();
-        Need(sourceIds.All(x => x.HasValue) && sourceIds.Distinct().Count() == sourceIds.Length, "lines", "Select each original invoice line once.");
-        var ids = sourceIds.Select(x => x!.Value).ToArray();
+        Need(input.CustomerId is null || input.CustomerId == document.CustomerId, "customerId", "Use the customer from the original invoice.");
+        Need(input.Currency is null || input.Currency == document.Currency, "currency", "Use the original invoice currency.");
+        Need((original?.Date ?? historical!.Date) <= input.Date, "date", "The Credit Memo cannot precede the original invoice.");
+        Need(input.PriceListId is null && input.DocumentDiscountIds is null or { Length: 0 }, "lines", "Credit adjustments use only the verified invoice terms.");
         var subscriber = document.SubscriberId;
         var company = document.CompanyId;
-        var billed = original.Lines.Where(x => ids.Contains(x.Id)).ToDictionary(x => x.Id);
-        var adjustments = await (from allocation in db.DocumentAllocations.AsNoTracking()
+        var sourceIds = input.Lines!.Select(x => x.SourceLineId).ToArray();
+        var billed = new Dictionary<Guid, FiscalDocumentLine>();
+        var priorLines = Array.Empty<(Guid? SourceLineId, PriorCredit Credit)>().ToLookup(x => x.SourceLineId, x => x.Credit);
+        PriorCredit[] historicalPrior = [];
+        if (historical is null)
+        {
+            Need(sourceIds.All(x => x.HasValue) && sourceIds.Distinct().Count() == sourceIds.Length &&
+                input.Lines!.All(x => x.ExternalLineKey is null), "lines", "Select each original invoice line once.");
+            var ids = sourceIds.Select(x => x!.Value).ToArray();
+            billed = original!.Lines.Where(x => ids.Contains(x.Id)).ToDictionary(x => x.Id);
+            var adjustments = await (from allocation in db.DocumentAllocations.AsNoTracking()
                 join prior in db.FiscalDocumentLines.AsNoTracking()
                     on new { allocation.SubscriberId, allocation.CompanyId, Id = allocation.LineId }
                     equals new { prior.SubscriberId, prior.CompanyId, prior.Id }
                 where allocation.SubscriberId == subscriber && allocation.CompanyId == company && allocation.Kind == "CreditInvoice"
                     && allocation.SourceLineId.HasValue && ids.Contains(allocation.SourceLineId.Value)
                 select new { allocation.SourceLineId, Line = prior }).ToListAsync(ct);
-        var priorLines = adjustments.ToLookup(x => x.SourceLineId, x => x.Line);
+            priorLines = adjustments.ToLookup(x => x.SourceLineId, x => CreditTotals(x.Line));
+        }
+        else
+        {
+            Need(input.Lines is [var requested] && requested.SourceLineId is null && requested.ExternalLineKey == historical.LineKey,
+                "lines", "Select the verified historical invoice line once.");
+            historicalPrior = await HistoricalCredits(subscriber, company, historical, ct);
+        }
         List<DocumentAllocation> allocations = [];
         foreach (var (requested, index) in input.Lines!.Select((line, index) => (line, index)))
         {
-            Need(billed.TryGetValue(requested.SourceLineId!.Value, out var originalLine), "lines", "Choose a line from this invoice.");
-            var source = originalLine!;
+            var resolved = historical?.Line ?? billed.GetValueOrDefault(requested.SourceLineId!.Value);
+            Need(resolved is not null, "lines", "Choose a line from this invoice.");
+            var source = resolved!;
             Need(source.StatutoryDiscount == 0 && source.IncomeWithholding == 0 && source.VatWithholding == 0,
                 "lines", "This adjustment requires review of the original statutory or withholding scenario.");
             Need((requested.ItemId == Guid.Empty || requested.ItemId == source.ItemId) && (requested.UnitId is null || requested.UnitId == source.UnitId)
                 && requested.UnitPrice is null && requested.TaxGroupId is null && requested.DiscountGroupIds is null && requested.Eligibility is null,
                 "lines", "Keep the committed item, unit, tax and discount terms for Credit Memo adjustments.");
-            var prior = priorLines[source.Id];
+            var prior = historical is null ? priorLines[source.Id] : historicalPrior;
             var remainingQuantity = source.Quantity - prior.Sum(x => x.Quantity);
             var remainingAmount = source.Total - prior.Sum(x => x.Total);
             decimal quantity;
@@ -161,19 +195,21 @@ internal sealed class DocumentRelationships(EfiscalDbContext db, IExternalSalesO
             }
             Need(money > 0 && money <= remainingAmount && FinancialMath.Round(money, document.Precision) == money,
                 "amount", "Use a positive currency amount within the remaining eligible value.");
-            var quote = FinancialMath.Allocate(money, [source.VatableSales - prior.Sum(x => x.VatableSales),
-                source.ExemptSales - prior.Sum(x => x.ExemptSales), source.ZeroRatedSales - prior.Sum(x => x.ZeroRatedSales),
-                source.NonVatSales - prior.Sum(x => x.NonVatSales), source.Vat - prior.Sum(x => x.Vat)], document.Precision);
+            var quote = FinancialMath.Allocate(money, [source.VatableSales - prior.Sum(x => x.Taxable),
+                source.ExemptSales - prior.Sum(x => x.Exempt), source.ZeroRatedSales - prior.Sum(x => x.ZeroRated),
+                source.NonVatSales - prior.Sum(x => x.NonVat), source.Vat - prior.Sum(x => x.Vat)], document.Precision);
             var ratio = money / remainingAmount;
             var credited = new FiscalDocumentLine { SubscriberId = subscriber, CompanyId = company, DocumentId = document.Id, Position = index + 1,
                 ItemId = source.ItemId, UnitId = source.UnitId, ItemCode = source.ItemCode, Description = source.Description, UnitCode = source.UnitCode,
                 UnitPrice = source.UnitPrice, BaseFactor = source.BaseFactor, Quantity = quantity, Total = money,
                 Gross = FinancialMath.Round((source.Gross - prior.Sum(x => x.Gross)) * ratio, document.Precision),
-                CommercialDiscount = FinancialMath.Round((source.CommercialDiscount - prior.Sum(x => x.CommercialDiscount)) * ratio, document.Precision),
+                CommercialDiscount = FinancialMath.Round((source.CommercialDiscount - prior.Sum(x => x.Discount)) * ratio, document.Precision),
                 VatableSales = quote[0], ExemptSales = quote[1], ZeroRatedSales = quote[2], NonVatSales = quote[3], Vat = quote[4], Terms = source.Terms };
             document.Lines.Add(credited);
             allocations.Add(new DocumentAllocation { SubscriberId = subscriber, CompanyId = company, LineId = credited.Id,
-                SourceLineId = source.Id, Quantity = quantity, Amount = money, Kind = "CreditInvoice" });
+                SourceLineId = historical is null ? source.Id : null, ExternalOrderKey = historical?.AllocationKey,
+                ExternalLineKey = historical?.LineKey, Quantity = quantity, Amount = money,
+                Kind = historical is null ? "CreditInvoice" : "CreditHistoricalInvoice" });
         }
         return allocations.ToArray();
     }

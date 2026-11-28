@@ -243,18 +243,24 @@ function MappingForm({ path, master, link, refresh, metadata }: { path: string; 
   const [customer, setCustomer] = useState(saved?.customerId ?? '')
   const [item, setItem] = useState(saved?.itemId ?? '')
   const [unit, setUnit] = useState(saved?.unitId ?? '')
+  const [shipping, setShipping] = useState(saved?.shippingItemId ?? '')
+  const [sellerDiscount, setSellerDiscount] = useState(saved?.sellerDiscountGroupId ?? '')
   const action = useAction()
   return <Card className="workspace-card"><h3>Company field mapping</h3><p>{metadata.template} maps fixture codes to this company’s records.</p>
     <form className="connect-stack" onSubmit={event => {
       event.preventDefault()
       void action.run(async () => {
-        await api(path + '/mapping', 'PUT', { customerId: customer, itemId: item, unitId: unit, expectedVersion: link.mappingVersion ?? 0 })
+        await api(path + '/mapping', 'PUT', { customerId: customer, itemId: item, unitId: unit, shippingItemId: shipping || null, sellerDiscountGroupId: sellerDiscount || null, expectedVersion: link.mappingVersion ?? 0 })
         await refresh()
       })
     }}><div className="connect-grid">
       <Reference base={master} id="map-customer" kind="customers" label="Company customer" required value={customer} onChange={setCustomer} />
       <Reference base={master} id="map-item" kind="items" label="Company item" required value={item} onChange={setItem} />
       <Reference base={master} id="map-unit" kind="units" label="Company base unit" required value={unit} onChange={setUnit} />
+      {link.resourceType === 'Store' && <>
+        <Reference base={master} id="map-shipping" kind="items" label="Approved shipping service" value={shipping} onChange={setShipping} />
+        <Reference base={master} id="map-discount" kind="discount-groups" label="Seller-funded line discount" value={sellerDiscount} onChange={setSellerDiscount} />
+      </>}
     </div>{action.error && <ErrorState>{action.error}</ErrorState>}
       <div><Button type="submit" disabled={action.busy}>Save mapping version</Button></div></form>
     <details className="connect-order"><summary>External field metadata</summary><ScrollTable name="External field metadata">

@@ -1,3 +1,4 @@
+using Embm.EFiscal.Api.Modules.MasterData;
 using System.Security.Cryptography;
 using System.Text.Json;
 using Embm.EFiscal.Api.Infrastructure;
@@ -107,7 +108,7 @@ internal sealed class ConnectedSalesOrders(EfiscalDbContext db, ConnectionRuntim
             var source = SourceObservations.Current(record, latest.GetValueOrDefault(record.Id));
             return source is null ? null : await AsSource(provider, source, key, ct);
         }
-        if (key.Length == 40 && key.StartsWith("so-", StringComparison.Ordinal) && key[35] == '-' &&
+        if (key.Length is > 36 and <= 156 && key.StartsWith("so-", StringComparison.Ordinal) && key[35] == '-' &&
             Guid.TryParseExact(key[3..35], "N", out var connection))
         {
             var provider = await runtime.Active(subscriber, company, connection, ["SalesOrderRead", "SalesOrderLineRead", "InvoiceOrderLink"], true, ct);
@@ -149,14 +150,40 @@ internal sealed class ConnectedSalesOrders(EfiscalDbContext db, ConnectionRuntim
             catch (ConnectorInputError) { return null; }
         }
         // Source eligibility, currency, quantities and identities come directly from the provider snapshot.
-        var lines = order.Lines.Select((line, i) => new ExternalOrderLine(line.Id, items[i], legacy.UnitId, line.InvoiceableQuantity, 1))
+        var lines = order.Lines.Select((line, i) => new ExternalOrderLine(line.Id, items[i], legacy.UnitId, line.InvoiceableQuantity, 1,
+                link.ResourceType == "CompanyFile" ? line.Quantity - line.InvoiceableQuantity : 0))
             .Where(x => x.Quantity > 0).ToArray();
         if (lines.Length == 0) return null;
         var partial = link.ResourceType != "Store" && ConnectionRuntime.Capable(link.Version, provider.Adapter, "PartialInvoicing");
-        var needsReview = link.ResourceType == "Store" && (order.Shipping != 0 || order.Refund != 0 || order.Lines.Any(x => x.Discount != 0));
+        MarketplaceInvoiceTerms? terms = null;
+        var needsReview = false;
+        if (link.ResourceType == "Store")
+        {
+            needsReview = order.Financials is not null || order.Shipping != 0 || order.Refund != 0 || order.Lines.Any(x => x.Discount != 0);
+            if (provider.Adapter.Key == "mock-commerce" && legacy.ShippingItemId is Guid shippingId &&
+                legacy.SellerDiscountGroupId is Guid discountId && order.Financials is { } source &&
+                order.Currency == "PHP" && order.Status == "Paid" && order.Refund == 0 && !order.Cancelled &&
+                source is { PlatformFundedVoucher: 0, ShippingSubsidy: 0, Refund: 0, Cancelled: false, CustomerShipping: > 0, SellerFundedDiscount: > 0,
+                    Commission: >= 0, ServiceFee: >= 0, ProcessingFee: >= 0, SettlementDeduction: >= 0 } &&
+                source.CustomerShipping == order.Shipping && order.Lines is [var product] &&
+                product.Quantity == product.InvoiceableQuantity && product.TaxCode == "VAT12" &&
+                product.Price * product.Quantity == source.ProductGross && product.Discount == source.SellerFundedDiscount)
+            {
+                var service = await db.MasterRecords.AsNoTracking().SingleOrDefaultAsync(x => x.SubscriberId == link.SubscriberId &&
+                    x.CompanyId == link.CompanyId && x.Id == shippingId && x.Kind == "items" && x.Active, ct);
+                var policy = new MarketplaceInvoiceTerms(link.ConnectorVersionId, legacy.Number, order.Revision, source, discountId, product.Id, product.Price);
+                if (service?.Data.Str("itemType") == "Services" && service.Data.Ref("unit") is Guid shippingUnit &&
+                    policy.InvoiceTotal - source.Commission - source.ServiceFee - source.ProcessingFee - source.SettlementDeduction == source.Settlement)
+                {
+                    terms = policy;
+                    lines = [..lines, new(MarketplaceInvoiceTerms.ShippingLine, shippingId, shippingUnit, 1, 1)];
+                    needsReview = false;
+                }
+            }
+        }
         return new(key, order.Reference, Read(link.Version).Name, link.ExternalAccountId, order.Id,
             new DateTimeOffset(order.OrderedOn.ToDateTime(TimeOnly.MinValue), TimeSpan.Zero), customer, lines, partial, order.Currency, link.BranchId,
-            needsReview ? "The source has marketplace shipping, discounts or refunds that require verified financial treatment before invoicing." : null);
+            needsReview ? MarketplaceInvoiceTerms.ReviewRequired : null, link.ExternalResourceId, terms);
     }
 }
 

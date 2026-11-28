@@ -85,6 +85,7 @@ public sealed class EfiscalDbContext(DbContextOptions<EfiscalDbContext> options)
     internal DbSet<ExecutionPolicy> ExecutionPolicies => Set<ExecutionPolicy>();
     internal DbSet<ConnectorTestResult> ConnectorTestResults => Set<ConnectorTestResult>();
     internal DbSet<SyncDestination> SyncDestinations => Set<SyncDestination>();
+    internal DbSet<SyncDestinationWindow> SyncDestinationWindows => Set<SyncDestinationWindow>();
     internal DbSet<SyncOperation> SyncOperations => Set<SyncOperation>();
     internal DbSet<SourceOrderObservation> SourceOrderObservations => Set<SourceOrderObservation>();
     internal DbSet<SyncAttempt> SyncAttempts => Set<SyncAttempt>();

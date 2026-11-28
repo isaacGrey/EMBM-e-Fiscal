@@ -183,7 +183,7 @@ internal static partial class ClientConnectEndpoints
     internal static BoundReference[] SandboxReferences(string kind) => kind switch
     {
         "Customer" => [new(kind, "", "DEMO-BUYER", "DEMO-BUYER")],
-        "Item" => [new(kind, "", "DEMO-SERVICE", "DEMO-SERVICE")],
+        "Item" => [new(kind, "", "DEMO-SERVICE", "DEMO-SERVICE"), new(kind, "", "DEMO-SHIPPING", "DEMO-SHIPPING")],
         "Tax" => [new(kind, "", "VAT12", "VAT12")],
         "Discount" => [new(kind, "", "PROMO5", "PROMO5")],
         "Unit" => [new(kind, "", "EA", "EA")],

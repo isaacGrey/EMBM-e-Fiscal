@@ -34,7 +34,7 @@ internal sealed class DocumentCommitService(EfiscalDbContext db, DocumentAssembl
         var digest = Digest(new { type, input });
         await using var tx = await db.LockSubscriberAsync(subscriber, ct);
         var scope = await DocumentEndpoints.Access(subscriber, companyId, Permission(type, true), http, db, ct);
-        if (scope is null) return null;
+        if (scope is null || !DocumentEndpoints.MayUseHistoricalInvoice(input, scope.Grant)) return null;
         var prior = await Prior(subscriber, companyId, actor, key, ct);
         if (prior is not null)
         {

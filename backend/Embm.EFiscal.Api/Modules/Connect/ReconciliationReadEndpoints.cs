@@ -211,7 +211,7 @@ internal static partial class ClientConnectEndpoints
            select new { r.Id, r.Purpose, r.At, snap.Number, snap.BusinessDate, snap.ExternalId }).Take(40).ToArrayAsync(ct);
         return Results.Ok(new { items = rows.Select(x => new { x.Id, x.Number, x.Date, x.Type, x.Source,
             status = x.Values.Header.TryGetValue("status", out var status) ? status.GetString() : null }), saved,
-            creditMemoEligibility = "Review required. Verified original credit and adjustment history is unavailable for these fixtures." });
+            creditMemoEligibility = "Credit Memos require complete, verified original invoice and prior adjustment evidence." });
     }
 
     private static async Task<IResult> SaveAccountingReference(Guid subscriber, Guid company, ReferenceRequest input, HttpContext http, EfiscalDbContext db,
@@ -234,7 +234,7 @@ internal static partial class ClientConnectEndpoints
         return Results.Ok(new { reference.Id, observation = SnapshotView(observed),
             invoiceSourceKey = input.Type == "SalesOrder" && source.Values.Lines?.Any(x => x.Values["remainingQuantity"].GetDecimal() > 0) == true ?
                 ConnectionRuntime.SalesKey(link.Id, source.Id) : null,
-            creditMemoEligible = false });
+            creditMemoEligible = DevelopmentAccountingRead.HasCompleteCreditHistory(source) && Grant(http).Grants.Contains(DocumentRules.Permission("CreditMemo", true)) });
     }
 
     private static async Task<IResult> SaveAccountingMatch(Guid subscriber, Guid company, MatchRequest input, HttpContext http, EfiscalDbContext db,

@@ -4,6 +4,7 @@ using Embm.EFiscal.Api.Modules.Billing;
 using Embm.EFiscal.Api.Modules.MasterData;
 using Embm.EFiscal.Api.Modules.Reporting;
 using Embm.EFiscal.Api.Modules.Tenants;
+using Embm.EFiscal.Api.Modules.Reconciliation;
 using Microsoft.EntityFrameworkCore;
 using static Embm.EFiscal.Api.Modules.Documents.DocumentRules;
 
@@ -22,6 +23,7 @@ internal static partial class DocumentEndpoints
         group.MapGet("/numbering", Numbering);
         group.MapPost("/numbering/{type}", PublishNumbering);
         group.MapGet("/external-order/{key}", ExternalSource);
+        group.MapGet("/historical-credit/{reference:guid}", HistoricalSource);
         group.MapGet("/commit-result/{key}", RecoverCommit);
         group.MapGet("/{type}/options", Options);
         group.MapGet("/{type}/register", Register);
@@ -64,21 +66,25 @@ internal static partial class DocumentEndpoints
         EfiscalDbContext db, DocumentAssembly assembly, DocumentCommitService service, CancellationToken ct)
     {
         if (!Types.Contains(type)) return TenantAccess.Missing();
-        return await ReadPreview(subscriber, company, type, http, db, async scope => Results.Ok(DocumentDtos.Preview(
+        return await ReadPreview(subscriber, company, type, input, http, db, async scope => Results.Ok(DocumentDtos.Preview(
             await assembly.Prepare(scope.Company, http.UserId(), type, input, service.LocalFixture(scope.Grant), ct),
             SalesOrder(type) ? null : await service.Balance(subscriber, ct))), ct);
     }
 
-    internal static async Task<IResult> ReadPreview(Guid subscriber, Guid company, string type, HttpContext http, EfiscalDbContext db,
+    internal static async Task<IResult> ReadPreview(Guid subscriber, Guid company, string type, DocumentInput input, HttpContext http, EfiscalDbContext db,
         Func<DocumentAccess, Task<IResult>> execute, CancellationToken ct)
     {
         await using var tx = await db.Database.BeginTransactionAsync(IsolationLevel.RepeatableRead, ct);
         await db.Database.ExecuteSqlRawAsync("SET TRANSACTION READ ONLY", ct);
-        if (await Access(subscriber, company, Permission(type, true), http, db, ct) is not { } scope) return TenantAccess.Missing();
+        if (await Access(subscriber, company, Permission(type, true), http, db, ct) is not { } scope ||
+            !MayUseHistoricalInvoice(input, scope.Grant)) return TenantAccess.Missing();
         try { return await execute(scope); }
         catch (MasterValidation error) { return Invalid(error); }
         catch (OverflowException) { return ApiSupport.Invalid("amount", "The document exceeds supported decimal limits."); }
     }
+
+    internal static bool MayUseHistoricalInvoice(DocumentInput input, TenantGrant grant) =>
+        input.HistoricalInvoiceReferenceId is null || grant.Grants.Contains(Coverage.References);
 
     private static async Task<IResult> Commit(Guid subscriber, Guid company, string type, CommitInput input, HttpContext http, EfiscalDbContext db,
         DocumentCommitService service, CancellationToken ct)
@@ -147,11 +153,26 @@ internal static partial class DocumentEndpoints
         {
             var order = (await documents.External(subscriber, company, key, ct))!;
             var used = await documents.AllocatedExternal(subscriber, company, order.Key, ct);
-            return Results.Ok(new { order.Key, order.Number, order.Connector, order.Account, order.RecordId, order.SourceAt, order.CustomerId, order.Currency, order.BranchId, order.FinancialReview,
+            return Results.Ok(new { order.Key, order.Number, order.Connector, order.Account, order.ExternalCompany, order.RecordId, order.SourceAt, order.CustomerId, order.Currency, order.BranchId, order.FinancialReview, marketplace = order.Marketplace is { } terms ? new { invoiceTotal = Money(terms.InvoiceTotal), settlement = Money(terms.Components.Settlement!.Value), terms.MappingVersion } : null,
                 lines = order.Lines.Select(x => new { x.Key, x.ItemId, x.UnitId, quantity = Money(x.Quantity),
+                    previouslyInvoiced = Money(x.PreviouslyInvoiced),
                     remainingQuantity = Money((x.Quantity * x.Factor - used.GetValueOrDefault(x.Key)) / x.Factor) }), development = true });
         }
         catch (MasterValidation error) { return Invalid(error); }
+    }
+
+    private static async Task<IResult> HistoricalSource(Guid subscriber, Guid company, Guid reference, HttpContext http, EfiscalDbContext db,
+        HistoricalCreditSource historical, DocumentRelationships documents, DocumentCommitService service, CancellationToken ct)
+    {
+        if (await Access(subscriber, company, Permission("CreditMemo", true), http, db, ct) is not { } scope || !service.LocalFixture(scope.Grant) ||
+            !scope.Grant.Grants.Contains(Coverage.References) ||
+            await historical.Read(subscriber, company, reference, ct) is not { } original) return TenantAccess.Missing();
+        var prior = await documents.HistoricalCredits(subscriber, company, original, ct);
+        var line = original.Line;
+        return Results.Ok(new { key = reference, original.Number, connector = "Development accounting", original.CustomerId,
+            original.BranchId, currency = "PHP", original.Date, original.ExternalCompany, original.Account, original.RecordId,
+            lines = new[] { new { key = original.LineKey, line.ItemId, line.UnitId, quantity = Money(line.Quantity),
+                remainingQuantity = Money(line.Quantity - prior.Sum(x => x.Quantity)), remainingAmount = Money(line.Total - prior.Sum(x => x.Total)) } } });
     }
 
     private static async Task<IResult> SourceLines(Guid subscriber, Guid company, string type, Guid id, HttpContext http,

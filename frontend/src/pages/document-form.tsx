@@ -18,8 +18,8 @@ export const mayChangeDocumentContext = () => window.dispatchEvent(new Event('ef
 const emptyHeader = { remarks: '', adjustmentReason: '', adjustmentKind: 'Return', requestedDeliveryDate: '', shippingAddress: '',
   salesperson: '', purchaseOrderReference: '', externalReference: '', warehouseReference: '' }
 
-export function DocumentForm({ base, master, type, options, branch, source, externalKey, onCommitted }: {
-  base: string; master: string; type: DocumentType; options: DocumentOptions; branch?: string; source: string; externalKey: string
+export function DocumentForm({ base, master, type, options, branch, source, externalKey, historicalReference, onCommitted }: {
+  base: string; master: string; type: DocumentType; options: DocumentOptions; branch?: string; source: string; externalKey: string; historicalReference: string
   onCommitted: (result: DocumentReceipt) => void
 }) {
   const order = type === 'SalesOrder'
@@ -27,7 +27,8 @@ export function DocumentForm({ base, master, type, options, branch, source, exte
   const sourceType = credit ? 'SalesInvoice' : 'SalesOrder'
   const path = base + '/' + type
   const client = useQueryClient()
-  const incoming = type === 'SalesInvoice' && options.development ? externalKey : ''
+  const historical = credit && options.development ? historicalReference : ''
+  const incoming = type === 'SalesInvoice' && options.development ? externalKey : historical
   const [sourcing, setSourcing] = useState(incoming ? 'external' : credit || source ? 'internal' : 'direct')
   const [sourceId, setSourceId] = useState(source)
   const [sourceSearch, setSourceSearch] = useState('')
@@ -64,7 +65,7 @@ export function DocumentForm({ base, master, type, options, branch, source, exte
     queryFn: () => api<SourceDocument>(base + '/' + sourceType + '/' + sourceId + '/source-lines'), enabled: sourcing === 'internal' && !!sourceId, retry: false })
   const sourceKey = incoming || 'sample-order'
   const external = useQuery({ queryKey: ['fiscal-documents', base, 'external-source', sourceKey],
-    queryFn: () => api<ExternalSource>(base + '/external-order/' + encodeURIComponent(sourceKey)), enabled: sourcing === 'external', retry: false })
+    queryFn: () => api<ExternalSource>(base + (historical ? '/historical-credit/' : '/external-order/') + encodeURIComponent(sourceKey)), enabled: sourcing === 'external', retry: false })
   const seeded = useRef(false)
   useEffect(() => {
     const order = external.data
@@ -120,7 +121,8 @@ export function DocumentForm({ base, master, type, options, branch, source, exte
       action: order ? 'CommitOnly' : 'CommitAndSend', date, branchId,
       customerId: sourcing === 'direct' ? optional(customerId) : linked.data?.document.customerId ?? external.data?.customerId ?? null,
       currency: optional(currency), priceListId: credit ? null : optional(priceListId), paymentTermId: credit ? null : optional(paymentTermId),
-      sourceDocumentId: sourcing === 'internal' ? optional(sourceId) : null, externalOrderKey: sourcing === 'external' ? external.data?.key : null,
+      sourceDocumentId: sourcing === 'internal' ? optional(sourceId) : null, externalOrderKey: sourcing === 'external' && !credit ? external.data?.key : null,
+      historicalInvoiceReferenceId: sourcing === 'external' && credit ? external.data?.key : null,
       documentDiscountIds: !credit ? discounts : null, recipient: order ? null : optional(recipient),
       pdfTemplateId: order ? null : optional(pdfTemplate), emailTemplateId: order ? null : optional(emailTemplate),
       remarks: optional(header.remarks), adjustmentReason: credit ? optional(header.adjustmentReason) : null,
@@ -244,7 +246,8 @@ export function DocumentForm({ base, master, type, options, branch, source, exte
             </>}
           </div>}
           {sourcing === 'external' && (external.isError ? <ErrorState>{errorMessage(external.error)}</ErrorState> : external.data && <div className="doc-stack">
-            <p>{external.data.number} · {external.data.connector}</p>{external.data.financialReview && <ErrorState>{external.data.financialReview}</ErrorState>}
+            <p>{external.data.number} · {external.data.connector}</p>{historical && external.data.lines.map(line => <p key={line.key}>Remaining eligible quantity {line.remainingQuantity} · PHP {line.remainingAmount}</p>)}{external.data.financialReview && <ErrorState>{external.data.financialReview}</ErrorState>}
+            {external.data.marketplace && <p>Invoice total PHP {external.data.marketplace.invoiceTotal} · Marketplace settlement PHP {external.data.marketplace.settlement}</p>}
             <div className="doc-actions">{external.data.lines.map(line =>
               <Button type="button" variant="light" key={line.key} disabled={Number(line.remainingQuantity) <= 0 || lines.some(row => row.externalLineKey === line.key)}
                 onClick={() => append({ itemId: line.itemId, unitId: line.unitId, quantity: line.remainingQuantity, externalLineKey: line.key })}>{incoming ? 'Add connected source line' : 'Add external fixture line'}</Button>)}</div></div>)}

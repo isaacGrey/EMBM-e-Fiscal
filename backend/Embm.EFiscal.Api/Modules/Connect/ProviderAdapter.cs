@@ -6,8 +6,11 @@ internal sealed record ProviderField(string Location, string Name, string Type, 
 internal sealed record ProviderMasterRecord(string Code, string Name);
 internal sealed record ProviderLine(string Id, string ItemCode, string Description, decimal Quantity, decimal InvoiceableQuantity,
     decimal Price, decimal Discount, string? TaxCode);
+internal sealed record MarketplaceFinancials(decimal ProductGross, decimal SellerFundedDiscount, decimal PlatformFundedVoucher,
+    decimal CustomerShipping, decimal ShippingSubsidy, decimal Commission, decimal ServiceFee, decimal ProcessingFee,
+    decimal SettlementDeduction, decimal Refund, bool Cancelled, decimal? Settlement);
 internal sealed record ProviderOrder(string Id, string Reference, DateOnly OrderedOn, string Currency, string Status,
-    string CustomerCode, string CustomerName, ProviderLine[] Lines, decimal Shipping = 0, decimal Refund = 0, bool Cancelled = false, int Revision = 1);
+    string CustomerCode, string CustomerName, ProviderLine[] Lines, decimal Shipping = 0, decimal Refund = 0, bool Cancelled = false, int Revision = 1, MarketplaceFinancials? Financials = null);
 
 internal interface IConnectorAdapter
 {
@@ -58,7 +61,8 @@ internal sealed class DevelopmentAdapters(IWebHostEnvironment environment)
         public ProviderMasterRecord[] ReadMasterData(string capability) => capability switch
         {
             "CustomerRead" => [new("DEMO-BUYER", "Development Buyer")],
-            "ItemRead" or "ProductRead" => [new("DEMO-SERVICE", "Development Service")],
+            "ItemRead" => [new("DEMO-SERVICE", "Development Service"), new("DEMO-SHIPPING", "Development Shipping Service")],
+            "ProductRead" => [new("DEMO-SERVICE", "Development Service")],
             "TaxCodeRead" => [new("VAT12", "Development standard VAT code")],
             "UnitOfMeasureRead" => [new("EA", "Each")],
             "AccountingDimensionRead" => [new("MNL", "Development Manila Department"), new("PRJ-1", "Development Pilot Project")],
@@ -75,7 +79,8 @@ internal sealed class DevelopmentAdapters(IWebHostEnvironment environment)
             ProviderOrder[] rows =
             [
                 new("0001", prefix + region + "1001", date, "PHP", commerce ? "Paid" : "Open", "DEMO-BUYER", "Development Buyer",
-                    [new("001", "DEMO-SERVICE", "Development Service", 5, 5, 100, commerce ? 5 : 0, "VAT12")], commerce ? 25 : 0),
+                    [new("001", "DEMO-SERVICE", "Development Service", 5, 5, 100, commerce ? 5 : 0, "VAT12")], commerce ? 25 : 0,
+                    Revision: commerce ? 2 : 1, Financials: commerce ? new MarketplaceFinancials(500m, 5m, 0m, 25m, 0m, 10m, 5m, 3m, 2m, 0m, false, 562.40m) : null),
                 new("0002", prefix + region + "1002", date, "PHP", "Cancelled", "DEMO-BUYER", "Development Buyer",
                     [new("001", "DEMO-SERVICE", "Cancelled Development Service", 1, 0, 100, 0, "VAT12")], Refund: commerce ? 100 : 0, Cancelled: true),
                 new("0003", prefix + region + "1003", date, "PHP", commerce ? "Partially Refunded" : "Open", "DEMO-BUYER", "Development Buyer",

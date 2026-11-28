@@ -40,6 +40,7 @@ public sealed class FiscalDocument
     public decimal Rounding { get; set; }
     public bool DevelopmentFixture { get; set; }
     public bool PartialFulfillment { get; set; }
+    public Guid? HistoricalInvoiceReferenceId { get; set; }
     public string? ExternalOrderKey { get; set; }
     public string? ExternalOrderNumber { get; set; }
     public Guid? SourceDocumentId { get; set; }
