@@ -78,6 +78,8 @@ builder.Services.AddScoped<MasterImport>();
 builder.Services.AddSingleton<MasterImportProof>();
 builder.Services.AddScoped<FinancialPreview>();
 builder.Services.AddScoped<DocumentAssembly>();
+if (!string.IsNullOrWhiteSpace(builder.Configuration.GetConnectionString("Efiscal")))
+    builder.Services.AddHostedService<ReportingOperationWorker>();
 builder.Services.AddScoped<DocumentCommitService>();
 builder.Services.AddScoped<DocumentRelationships>();
 builder.Services.AddScoped<HistoricalCreditSource>();
@@ -146,6 +148,7 @@ app.MapReporting();
 app.MapRegulatoryAuthorizations();
 app.MapVendorRegulatoryReview();
 app.MapRegulatoryConnector();
+app.MapReportingOperations();
 app.MapVendorAccreditation();
 app.MapRegulatorySchemas();
 app.MapVendorConnect();

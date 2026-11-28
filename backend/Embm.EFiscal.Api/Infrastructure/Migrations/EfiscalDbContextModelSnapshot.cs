@@ -3859,6 +3859,124 @@ namespace Embm.EFiscal.Api.Infrastructure.Migrations
                         });
                 });
 
+            modelBuilder.Entity("Embm.EFiscal.Api.Modules.Reporting.ReportingOperation", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("Actor")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset>("At")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("Attempts")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTimeOffset>("AvailableAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("BatchId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("BranchId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("CompanyId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int?>("ConnectorVersion")
+                        .HasColumnType("integer");
+
+                    b.Property<Guid>("DocumentId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Failure")
+                        .HasColumnType("text");
+
+                    b.Property<Guid?>("Lease")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset?>("LeaseUntil")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("MappingVersion")
+                        .HasColumnType("text");
+
+                    b.Property<string>("Mode")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("PayloadHash")
+                        .HasColumnType("text");
+
+                    b.Property<string>("Scenario")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("SchemaVersion")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("SourceHash")
+                        .HasColumnType("text");
+
+                    b.Property<string>("State")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<Guid>("SubscriberId")
+                        .HasColumnType("uuid");
+
+                    b.Property<bool>("VerifyOnly")
+                        .HasColumnType("boolean");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ConnectorVersion");
+
+                    b.HasIndex("State", "AvailableAt");
+
+                    b.HasIndex("SubscriberId", "CompanyId", "DocumentId", "Mode", "ConnectorVersion")
+                        .IsUnique();
+
+                    NpgsqlIndexBuilderExtensions.AreNullsDistinct(b.HasIndex("SubscriberId", "CompanyId", "DocumentId", "Mode", "ConnectorVersion"), false);
+
+                    b.ToTable("ReportingOperation");
+                });
+
+            modelBuilder.Entity("Embm.EFiscal.Api.Modules.Reporting.ReportingOperationAttempt", b =>
+                {
+                    b.Property<Guid>("OperationId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("Sequence")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Action")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<DateTimeOffset>("At")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Outcome")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("Reference")
+                        .HasColumnType("text");
+
+                    b.Property<string>("ResponseHash")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.HasKey("OperationId", "Sequence");
+
+                    b.ToTable("ReportingOperationAttempt");
+                });
+
             modelBuilder.Entity("Embm.EFiscal.Api.Modules.Reporting.ReportingPreparation", b =>
                 {
                     b.Property<Guid>("Id")
@@ -6557,6 +6675,30 @@ namespace Embm.EFiscal.Api.Infrastructure.Migrations
                     b.HasOne("Embm.EFiscal.Api.Modules.Reporting.RegulatoryConnectorVersion", null)
                         .WithMany()
                         .HasForeignKey("Version")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Embm.EFiscal.Api.Modules.Reporting.ReportingOperation", b =>
+                {
+                    b.HasOne("Embm.EFiscal.Api.Modules.Reporting.RegulatoryConnectorVersion", null)
+                        .WithMany()
+                        .HasForeignKey("ConnectorVersion")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("Embm.EFiscal.Api.Modules.Documents.FiscalDocument", null)
+                        .WithMany()
+                        .HasForeignKey("SubscriberId", "CompanyId", "DocumentId")
+                        .HasPrincipalKey("SubscriberId", "CompanyId", "Id")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Embm.EFiscal.Api.Modules.Reporting.ReportingOperationAttempt", b =>
+                {
+                    b.HasOne("Embm.EFiscal.Api.Modules.Reporting.ReportingOperation", null)
+                        .WithMany()
+                        .HasForeignKey("OperationId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
                 });

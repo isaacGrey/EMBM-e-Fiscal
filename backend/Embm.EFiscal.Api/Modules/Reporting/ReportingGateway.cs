@@ -144,22 +144,27 @@ internal static class ReportingGateway
         var row = await Preparations(db, subscriber, company).SingleOrDefaultAsync(x => x.DocumentId == document, ct);
         if (row is null)
         {
-            // Internal evidence envelope, deliberately NOT an official government payload.
-            var content = JsonSerializer.Serialize(new { schemaVersion = "embm-preparation-v1", purpose = "InternalPreparationOnly",
-                governmentStatus = "NotSubmitted", doc.DevelopmentFixture, doc.Id, doc.Type, doc.Number, doc.Date, doc.Currency,
-                exchangeRate = DocumentRules.Money(doc.ExchangeRate), doc.SourceDocumentId, totals = DocumentDtos.Totals(doc),
-                parties = doc.Snapshot.Parties, header = doc.Snapshot.Header, numbering = doc.Snapshot.Numbering,
-                lines = doc.Lines.OrderBy(x => x.Position).Select(DocumentDtos.Line) },
-                new JsonSerializerOptions(JsonSerializerDefaults.Web));
-            row = new ReportingPreparation { SubscriberId = subscriber, CompanyId = company, DocumentId = document,
-                ActorId = http.UserId(), CreatedAt = DateTimeOffset.UtcNow, Content = content,
-                Sha256 = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(content))) };
+            row = BuildPreparation(doc, http.UserId());
             db.ReportingPreparations.Add(row);
             db.Audit("Reporting.Prepared", http.UserId(), subscriber, document);
             await db.SaveChangesAsync(ct);
         }
         await tx.CommitAsync(ct);
         return Results.Ok(new { row.Id, row.Sha256, governmentStatus = "NotSubmitted" });
+    }
+
+    internal static ReportingPreparation BuildPreparation(FiscalDocument doc, Guid actor)
+    {
+        // Internal evidence envelope, deliberately NOT an official government payload.
+        var content = JsonSerializer.Serialize(new { schemaVersion = "embm-preparation-v1", purpose = "InternalPreparationOnly",
+            governmentStatus = "NotSubmitted", doc.DevelopmentFixture, doc.Id, doc.Type, doc.Number, doc.Date, doc.Currency,
+            exchangeRate = DocumentRules.Money(doc.ExchangeRate), doc.SourceDocumentId, totals = DocumentDtos.Totals(doc),
+            parties = doc.Snapshot.Parties, header = doc.Snapshot.Header, numbering = doc.Snapshot.Numbering,
+            lines = doc.Lines.OrderBy(x => x.Position).Select(DocumentDtos.Line) },
+            new JsonSerializerOptions(JsonSerializerDefaults.Web));
+        return new ReportingPreparation { SubscriberId = doc.SubscriberId, CompanyId = doc.CompanyId, DocumentId = doc.Id,
+            ActorId = actor, CreatedAt = DateTimeOffset.UtcNow, Content = content,
+            Sha256 = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(content))) };
     }
 
     private static async Task<IResult> Simulate(Guid subscriber, Guid company, Guid document, HttpContext http, EfiscalDbContext db,

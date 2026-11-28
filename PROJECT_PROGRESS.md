@@ -297,3 +297,9 @@ Two focused PostgreSQL authorization tests passed. The new test covered scoped a
 Added the separate development BIR API Configuration workspace and immutable configuration, lifecycle and test history. It accepts bounded OpenAPI and declarative synthetic connector imports, with a reserved simulator origin and an exact method and path allowlist. Official records can hold pending documentation metadata. The implementation registers no network transport and accepts no authentication credentials. Independent users validate and activate synthetic versions. Test payloads use an internal versioned envelope and simulated responses never establish government acknowledgment.
 
 The dedicated PostgreSQL connector test passed, covering unsafe reference and origin rejection, executable metadata rejection, YAML import, authorization separation, immutable versions and official activation denial. TypeScript validation passed.
+
+## Phase 10C durable reporting checkpoint
+
+Added explicitly selected, company-scoped preparation and development simulation jobs. Each simulated operation pins the canonical hash, schema, mapping and synthetic connector version. PostgreSQL claims and leases recover interrupted work and retain immutable attempt hashes. Safe retries, delayed acknowledgment, partial batch outcomes and status-only verification are supported. Official transmission, certification, and automatic historical submission remain unavailable. Existing synchronous preparation and integrity simulation remain compatible.
+
+A PostgreSQL end-to-end worker test passed. It exercised preparation, duplicate operation replay, an uncertain outcome verified without resubmission, delayed acknowledgment, rate-limit retry after an expired lease, and partial batch results. It verified unchanged reporting credits and fictional acknowledgments. TypeScript validation passed.

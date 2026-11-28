@@ -1,3 +1,4 @@
+import { ReportingOperationsPanel } from './reporting-operations'
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Badge, Button, Card, ErrorState, LoadingState } from '@/components/ui'
@@ -30,7 +31,7 @@ export function ReportingWorkspace({ base }: { base: string }) {
   }
   if (query.isPending) return <LoadingState label="Loading reporting preparation…" />
   if (query.isError) return <ErrorState>{errorMessage(query.error)}</ErrorState>
-  return <Card className="workspace-card">
+  return <div className="workspace-stack"><Card className="workspace-card">
     <Badge tone="warning">Preparation mode</Badge>
     <h2>BIR Reporting Preparation</h2>
     <p>Prepare internal evidence from committed Sales Invoices and Credit Memos. Sales Orders are excluded.</p>
@@ -65,5 +66,5 @@ export function ReportingWorkspace({ base }: { base: string }) {
         onClick={() => { setDetail(null); setPage(page + 1) }}>Next</Button></div>
     {detail && <section className="reporting-evidence" aria-label="Preparation evidence"><h3>Internal preparation evidence</h3><p>{detail.schemaVersion} · Not submitted</p>
       <p>SHA-256: {detail.sha256}</p><details><summary>View internal evidence JSON</summary><pre>{JSON.stringify(detail.content, null, 2)}</pre></details></section>}
-  </Card>
+  </Card><ReportingOperationsPanel base={base} documents={query.data.items} /></div>
 }
