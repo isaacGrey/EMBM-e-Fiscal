@@ -68,3 +68,57 @@ The company workspace now includes BIR Reporting Preparation. Authorized adminis
 ### Phase 10.3 development workspaces
 
 Use BIR Compliance in the client portal to manage company and branch authorization evidence. Owners assign the Regulatory Reviewer role to a different account and select its covered companies. Open a committed Sales Invoice or Credit Memo to view or download its internal structured invoice. Older documents can generate internal JSON from their committed snapshot. Use the Development vendor portal to manage provider evidence, review regulatory sources, and inspect published internal schema versions.
+
+## Codex Cloud development
+
+Use the existing checkout at `/workspace/EMBM-e-Fiscal`. The cloud environment configuration prepares .NET, PostgreSQL, repository dependencies, and local development tools under `/workspace/.efiscal`. On a restored task, source the environment and restart the services. Run the saved install script when the prepared files are missing or dependencies or migrations change. The script uses the npm manifest and lockfile to decide when to run `npm ci`. The .NET SDK handles incremental NuGet restore from project inputs. Stop your API and Vite processes before refreshing build outputs.
+
+From the repository root, start the dedicated loopback PostgreSQL server and API:
+
+```bash
+cd /workspace/EMBM-e-Fiscal
+bash /workspace/.efiscal/start-postgres.sh
+source /workspace/.efiscal/env.sh
+dotnet run --project backend/Embm.EFiscal.Api -c Release
+```
+
+Use a separate terminal to start Vite:
+
+```bash
+cd /workspace/EMBM-e-Fiscal/frontend
+source /workspace/.efiscal/env.sh
+npm run dev
+```
+
+Check the API at `127.0.0.1:5108/api/health` and check that the frontend proxy returns the database-backed catalog at `127.0.0.1:5173/api/billing/catalog`. Run the following from the repository root with PostgreSQL running:
+
+```bash
+source /workspace/.efiscal/env.sh
+dotnet build Embm.EFiscal.slnx -c Release
+dotnet ef migrations has-pending-model-changes --project backend/Embm.EFiscal.Api -c Release --no-build
+ConnectionStrings__Efiscal="$EFISCAL_TEST_DB" dotnet test Embm.EFiscal.slnx -c Release --no-build
+graphify extract . --code-only
+```
+
+The generated Playwright configuration uses system Chromium. For the complete regression, bootstrap a synthetic vendor in the browser test terminal from the repository root after building the Release API:
+
+```bash
+source /workspace/.efiscal/env.sh
+export EFISCAL_PHASE7_VENDOR_EMAIL="cloud-vendor-$(openssl rand -hex 6)@example.test"
+export EFISCAL_PHASE7_VENDOR_PASSWORD="$(openssl rand -hex 32)Aa1!"
+Identity__EnableLocalVendorLogin=true Identity__LocalVendorPassword="$EFISCAL_PHASE7_VENDOR_PASSWORD" \
+  dotnet run --project backend/Embm.EFiscal.Api -c Release --no-build -- --bootstrap-local-vendor "$EFISCAL_PHASE7_VENDOR_EMAIL"
+```
+
+Start the API with `Identity__EnableLocalVendorLogin=true` for the regression. With both services running, continue in the browser test terminal:
+
+```bash
+cd frontend
+npm run build
+npm run test:e2e -- --config TestResults/playwright.cloud.config.ts --workers=1
+unset EFISCAL_PHASE7_VENDOR_EMAIL EFISCAL_PHASE7_VENDOR_PASSWORD
+```
+
+Restart the API without the local vendor login setting for routine development. Keep fixture credentials out of Git and keep production services disconnected.
+
+Use local Graphify queries for cross-module discovery and direct RTK commands for routine output. Native Git, Playwright, Chromium CDP, and the existing components support the workflow when hosted integrations are unavailable.
