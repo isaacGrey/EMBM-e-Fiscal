@@ -30,6 +30,7 @@ internal sealed class RegulatoryAuthorizationVersion
     public required string ContentType { get; set; }
     public required string Sha256 { get; set; }
     public int Size { get; set; }
+    public string? ScanState { get; set; }
     public Guid SubmittedBy { get; set; }
     public DateTimeOffset SubmittedAt { get; set; }
 }

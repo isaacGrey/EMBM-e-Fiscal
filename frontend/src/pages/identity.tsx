@@ -1,3 +1,4 @@
+import { VendorTaxpayerReview } from './vendor-taxpayer-review'
 import { VendorBilling } from './vendor-billing'
 import { VendorConnect } from './vendor-connect'
 import { VendorAccreditationWorkspace } from './vendor-accreditation'
@@ -175,6 +176,7 @@ export function Invitation() {
 export function VendorWorkspace() {
   const path = useLocation().pathname
   const builder = path.startsWith('/portal/vendor/connectors')
+  const taxpayerReview = path === '/portal/vendor/taxpayer-review'
   const accreditation = path === '/portal/vendor/accreditation'
   const schemas = path === '/portal/vendor/regulatory-schemas'
   const user = useQuery(sessionQuery)
@@ -196,6 +198,7 @@ export function VendorWorkspace() {
           <Link className="text-link" to="/portal/vendor">Commercial administration</Link>
           <Link className="text-link" to="/portal/vendor/connectors">Universal API Connector Builder</Link>
           <Link className="text-link" to="/portal/vendor/accreditation">Regulatory Compliance</Link>
+          <Link className="text-link" to="/portal/vendor/taxpayer-review">Taxpayer Verification</Link>
           <Link className="text-link" to="/portal/vendor/regulatory-schemas">Regulatory Schema Registry</Link>
           {builder && <>
             <Link className="text-link" to="/portal/vendor/connectors/api-sandbox">API sandbox</Link>
@@ -203,7 +206,7 @@ export function VendorWorkspace() {
             <Link className="text-link" to="/portal/vendor/connectors/monitor">Connector monitoring</Link>
           </>}
         </nav>
-        {builder ? <VendorConnect /> : accreditation ? <VendorAccreditationWorkspace /> : schemas ? <VendorRegulatorySchemas /> : <VendorBilling />}
+        {builder ? <VendorConnect /> : taxpayerReview ? <VendorTaxpayerReview /> : accreditation ? <VendorAccreditationWorkspace /> : schemas ? <VendorRegulatorySchemas /> : <VendorBilling />}
       </div>}
   </AccountShell>
 }

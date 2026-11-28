@@ -5,14 +5,14 @@ import { api, errorMessage, type Branch } from '@/lib/account-api'
 
 type Version = {
   number: number; reference: string; authority: string; solution: string; solutionVersion: string; scope: string
-  effectiveFrom: string; expiresOn: string | null; filename: string; sha256: string
+  effectiveFrom: string; expiresOn: string | null; filename: string; sha256: string; scanState?: string
 }
 type Authorization = {
-  id: string; branchId: string; kind: string; documentType: string; latest: Version; decision: string | null
+  id: string; branchId: string; kind: string; documentType: string; latest: Version; decision: string | null; vendorCase?: string
 }
 type Register = {
   records: Authorization[]; total: number; kinds: string[]; documentTypes: string[]
-  canSubmit: boolean; canViewHistory: boolean; reviewActions: string[]
+  canSubmit: boolean; canRequestVendorReview: boolean; canViewHistory: boolean; reviewActions: string[]
 }
 type History = { versions: Version[]; reviews: { number: number; sequence: number; decision: string; reason: string; reviewedAt: string }[] }
 type Eligibility = {
@@ -54,6 +54,16 @@ export function RegulatoryAuthorizationWorkspace({ base, branches }: { base: str
       branch: selected!.branchId, documentType: selected!.documentType,
     })),
   })
+
+  async function requestVendorReview(id: string) {
+    setBusy(true); setError(''); setMessage('')
+    try {
+      await api(base + '/' + id + '/vendor-case', 'POST', {})
+      await register.refetch()
+      setMessage('Vendor review requested for this authorization and its future evidence versions.')
+    } catch (failure) { setError(errorMessage(failure)) }
+    finally { setBusy(false) }
+  }
 
   async function save(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
@@ -123,8 +133,11 @@ export function RegulatoryAuthorizationWorkspace({ base, branches }: { base: str
           <tbody>{result.records.map(row => <tr key={row.id}>
             <td>{labels[row.kind] ?? row.kind}<br />{labels[row.documentType]}</td>
             <td>{branches.find(branch => branch.id === row.branchId)?.code ?? 'Registered branch'}</td>
-            <td>{row.latest.reference}</td><td>{row.decision ? labels[row.decision] : 'Awaiting review'}</td>
+            <td>{row.latest.reference}</td><td>{row.decision ? labels[row.decision] : 'Awaiting review'}{row.vendorCase && <><br />Vendor case {row.vendorCase.slice(0, 8)}</>}</td>
             <td>{result.canViewHistory && <Button variant="light" disabled={busy} onClick={() => setSelected(row)}>View history</Button>}
+              {result.canRequestVendorReview && !row.vendorCase && <Button variant="light" disabled={busy} onClick={() => {
+                if (window.confirm('Share this authorization and future evidence versions with an assigned vendor reviewer?')) void requestVendorReview(row.id)
+              }}>Request vendor review</Button>}
               {result.canSubmit && <Button variant="light" disabled={busy} onClick={() => setEditing(row)}>Submit new version</Button>}</td>
           </tr>)}</tbody>
         </table>
@@ -176,7 +189,9 @@ export function RegulatoryAuthorizationWorkspace({ base, branches }: { base: str
         <p>{version.authority} · {version.solution} {version.solutionVersion}</p>
         <p>{version.scope}</p>
         <p>Effective {version.effectiveFrom}{version.expiresOn ? ' through ' + version.expiresOn : ''}</p>
-        <a href={'/api' + base + '/' + selected.id + '/versions/' + version.number + '/evidence'} download>Download {version.filename}</a>
+        {version.scanState && <p>Evidence scan {version.scanState}</p>}
+        {(version.scanState == null || version.scanState === 'DevelopmentClean') &&
+          <a href={'/api' + base + '/' + selected.id + '/versions/' + version.number + '/evidence'} download>Download {version.filename}</a>}
         <p>SHA-256 {version.sha256}</p>
         {history.data!.reviews.filter(event => event.number === version.number).map(event => <p key={event.sequence}>
           {labels[event.decision]} · {new Date(event.reviewedAt).toLocaleString()} · {event.reason}

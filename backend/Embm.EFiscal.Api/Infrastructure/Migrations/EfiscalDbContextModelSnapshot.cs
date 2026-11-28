@@ -3621,6 +3621,9 @@ namespace Embm.EFiscal.Api.Infrastructure.Migrations
                         .IsRequired()
                         .HasColumnType("text");
 
+                    b.Property<string>("ScanState")
+                        .HasColumnType("text");
+
                     b.Property<string>("Scope")
                         .IsRequired()
                         .HasColumnType("text");
@@ -3821,6 +3824,92 @@ namespace Embm.EFiscal.Api.Infrastructure.Migrations
                         {
                             t.HasCheckConstraint("CK_ReportingSimulation_Outcome", "\"Outcome\" = 'SimulationValidated'");
                         });
+                });
+
+            modelBuilder.Entity("Embm.EFiscal.Api.Modules.Reporting.VendorReviewAssignment", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("AssignedBy")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("CaseId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset>("ExpiresAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Reason")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<Guid>("Reviewer")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset>("StartsAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Reviewer");
+
+                    b.HasIndex("CaseId", "Reviewer", "ExpiresAt");
+
+                    b.ToTable("VendorReviewAssignment", t =>
+                        {
+                            t.HasCheckConstraint("CK_VendorReviewAssignment_Time", " \"StartsAt\" < \"ExpiresAt\" ");
+                        });
+                });
+
+            modelBuilder.Entity("Embm.EFiscal.Api.Modules.Reporting.VendorReviewCase", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("AuthorizationId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("CompanyId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset>("RequestedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("RequestedBy")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("SubscriberId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("SubscriberId", "CompanyId", "AuthorizationId")
+                        .IsUnique();
+
+                    b.ToTable("VendorReviewCase");
+                });
+
+            modelBuilder.Entity("Embm.EFiscal.Api.Modules.Reporting.VendorReviewRevocation", b =>
+                {
+                    b.Property<Guid>("AssignmentId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Reason")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<DateTimeOffset>("RevokedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("RevokedBy")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("AssignmentId");
+
+                    b.ToTable("VendorReviewRevocation");
                 });
 
             modelBuilder.Entity("Embm.EFiscal.Api.Modules.Tenants.Branch", b =>
@@ -6357,6 +6446,39 @@ namespace Embm.EFiscal.Api.Infrastructure.Migrations
                         .WithMany()
                         .HasForeignKey("SubscriberId", "CompanyId", "PreparationId")
                         .HasPrincipalKey("SubscriberId", "CompanyId", "Id")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Embm.EFiscal.Api.Modules.Reporting.VendorReviewAssignment", b =>
+                {
+                    b.HasOne("Embm.EFiscal.Api.Modules.Reporting.VendorReviewCase", null)
+                        .WithMany()
+                        .HasForeignKey("CaseId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Embm.EFiscal.Api.Modules.Identity.User", null)
+                        .WithMany()
+                        .HasForeignKey("Reviewer")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Embm.EFiscal.Api.Modules.Reporting.VendorReviewCase", b =>
+                {
+                    b.HasOne("Embm.EFiscal.Api.Modules.Reporting.RegulatoryAuthorization", null)
+                        .WithMany()
+                        .HasForeignKey("SubscriberId", "CompanyId", "AuthorizationId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Embm.EFiscal.Api.Modules.Reporting.VendorReviewRevocation", b =>
+                {
+                    b.HasOne("Embm.EFiscal.Api.Modules.Reporting.VendorReviewAssignment", null)
+                        .WithOne()
+                        .HasForeignKey("Embm.EFiscal.Api.Modules.Reporting.VendorReviewRevocation", "AssignmentId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
                 });

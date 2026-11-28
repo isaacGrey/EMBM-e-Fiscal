@@ -103,15 +103,77 @@ public sealed partial class IdentityTenantTests
         });
     }
 
+    [PostgresFact]
+    public async Task VendorReviewUsesExplicitAssignmentAndBlocksUnsafeEvidence()
+    {
+        using var owner = await BillingBuyer();
+        using var manager = await ConnectorVendor(VendorRegulatoryReview.Manage);
+        using var reviewer = await ConnectorVendor(VendorRegulatoryReview.Review);
+        using var outsider = await ConnectorVendor(VendorRegulatoryReview.Review);
+        var f = await PaidCompany(owner, "VENDOR-REG");
+        var path = f.Path.Replace("/documents", "/regulatory-authorizations");
+        var today = RegulatoryEligibility.ManilaDate();
+        var input = new RegulatoryAuthorizations.Submission(f.Branch, "PermitToIssue", "SalesInvoice", "SYNTHETIC-10",
+            "Synthetic authority", "EMBM eFiscal", "development", "Fictional branch evidence", today, today.AddDays(1), 0);
+        using var submitted = await UploadAuthorization(owner, path, input, payload: """{"syntheticScanOutcome":"Quarantined"}""");
+        Assert.Equal(HttpStatusCode.Created, submitted.StatusCode);
+        var version = await submitted.Content.ReadFromJsonAsync<System.Text.Json.JsonElement>();
+        var id = version.GetProperty("authorizationId").GetGuid();
+        var request = await RequestJson(owner, path + "/" + id + "/vendor-case", new { });
+        var reviewBase = "/api/vendor/taxpayer-review/" + request.GetProperty("id").GetGuid();
+        var reviewerId = (await Json(reviewer, "/api/auth/me")).GetProperty("id").GetGuid();
+        var now = DateTimeOffset.UtcNow;
+        var managerView = await Json(manager, reviewBase);
+        Assert.False(managerView.GetProperty("canReview").GetBoolean());
+        Assert.False(managerView.TryGetProperty("versions", out _));
+        await Expect(reviewer.GetAsync(reviewBase), HttpStatusCode.NotFound);
+        await Expect(manager.GetAsync(reviewBase + "/versions/1/evidence"), HttpStatusCode.NotFound);
+        await Expect(Mutate(reviewer, reviewBase + "/assignments", new
+            { reviewer = reviewerId, startsAt = now, expiresAt = now.AddMinutes(30), reason = "No self assignment" }), HttpStatusCode.NotFound);
+        var assignment = await RequestJson(manager, reviewBase + "/assignments", new
+            { reviewer = reviewerId, startsAt = now, expiresAt = now.AddMinutes(30), reason = "Independent case review" });
+        var detail = await Json(reviewer, reviewBase);
+        Assert.Equal("Quarantined", detail.GetProperty("versions")[0].GetProperty("scanState").GetString());
+        await Expect(reviewer.GetAsync(reviewBase + "/versions/1/evidence"), HttpStatusCode.Conflict);
+        await Expect(outsider.GetAsync(reviewBase), HttpStatusCode.NotFound);
+        var reviews = reviewBase + "/versions/1/reviews";
+        await Expect(Mutate(reviewer, reviews, new { decision = "ReviewAccepted", reason = "Unsafe attempt", expectedSequence = 0 }), HttpStatusCode.Conflict);
+        await RequestJson(reviewer, reviews, new { decision = "AdditionalEvidence", reason = "Replace unsafe evidence", expectedSequence = 0 });
+        await Expect(UploadAuthorization(owner, path + "/" + id + "/versions", input with { ExpectedVersion = 1 }), HttpStatusCode.Created);
+        await Expect(reviewer.GetAsync(reviewBase + "/versions/2/evidence"), HttpStatusCode.OK);
+        await RequestJson(reviewer, reviewBase + "/versions/2/reviews", new { decision = "ReviewAccepted", reason = "Internal evidence checked", expectedSequence = 0 });
+        await Expect(Mutate(reviewer, reviewBase + "/versions/2/reviews",
+            new { decision = "ExternalAuthorizationDocumented", reason = "No vendor authority", expectedSequence = 1 }), HttpStatusCode.BadRequest);
+        var eligibility = await Json(owner, path + $"/eligibility?branch={f.Branch}&documentType=SalesInvoice");
+        Assert.Empty(eligibility.GetProperty("applicableAuthorizations").EnumerateArray());
+        Assert.Equal("Disabled", eligibility.GetProperty("transmission").GetString());
+        var history = await Json(owner, path + "/" + id + "/history");
+        Assert.Equal(2, history.GetProperty("versions").GetArrayLength());
+        Assert.Equal(2, history.GetProperty("reviews").GetArrayLength());
+
+        await Expect(Mutate(manager, reviewBase + "/assignments/" + assignment.GetProperty("id").GetGuid() + "/revoke",
+            new { reason = "Case assignment withdrawn" }), HttpStatusCode.NoContent);
+        await Expect(reviewer.GetAsync(reviewBase), HttpStatusCode.NotFound);
+        await Expect(reviewer.GetAsync(reviewBase + "/versions/2/evidence"), HttpStatusCode.NotFound);
+        var caseId = request.GetProperty("id").GetGuid();
+        await Db(async db =>
+        {
+            db.Add(new VendorReviewAssignment { CaseId = caseId, Reviewer = reviewerId, Reason = "Expired fixture",
+                StartsAt = now.AddDays(-2), ExpiresAt = now.AddDays(-1) });
+            await db.SaveChangesAsync();
+        });
+        await Expect(reviewer.GetAsync(reviewBase), HttpStatusCode.NotFound);
+    }
+
     private static async Task<HttpResponseMessage> UploadAuthorization(HttpClient browser, string path,
-        RegulatoryAuthorizations.Submission input, string name = "synthetic.json")
+        RegulatoryAuthorizations.Submission input, string name = "synthetic.json", string payload = """{"synthetic":true}""")
     {
         var token = (await Json(browser, "/api/auth/csrf")).GetProperty("token").GetString()!;
         using var request = new HttpRequestMessage(HttpMethod.Post, path);
         request.Headers.Add("X-EFiscal-CSRF", token);
         using var content = new MultipartFormDataContent();
         content.Add(new StringContent(System.Text.Json.JsonSerializer.Serialize(input)), "metadata");
-        content.Add(new StringContent("""{"synthetic":true}"""), "evidence", name);
+        content.Add(new StringContent(payload), "evidence", name);
         request.Content = content;
         return await browser.SendAsync(request);
     }

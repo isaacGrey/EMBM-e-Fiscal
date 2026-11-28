@@ -144,6 +144,7 @@ app.MapMasterData();
 app.MapDocuments();
 app.MapReporting();
 app.MapRegulatoryAuthorizations();
+app.MapVendorRegulatoryReview();
 app.MapVendorAccreditation();
 app.MapRegulatorySchemas();
 app.MapVendorConnect();

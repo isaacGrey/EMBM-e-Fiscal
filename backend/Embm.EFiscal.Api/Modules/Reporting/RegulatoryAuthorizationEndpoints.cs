@@ -63,6 +63,8 @@ internal static partial class RegulatoryAuthorizations
             .Select(record => new
             {
                 record.Id, record.BranchId, record.Kind, record.DocumentType,
+                vendorCase = db.Set<VendorReviewCase>().Where(c => c.SubscriberId == subscriber && c.CompanyId == company &&
+                    c.AuthorizationId == record.Id).Select(c => (Guid?)c.Id).FirstOrDefault(),
                 latest = versions.Where(x => x.AuthorizationId == record.Id).OrderByDescending(x => x.Number).First(),
                 decision = reviews.Where(x => x.AuthorizationId == record.Id &&
                     x.Number == versions.Where(v => v.AuthorizationId == record.Id).Max(v => v.Number))
@@ -71,6 +73,8 @@ internal static partial class RegulatoryAuthorizations
         var grants = access.Grant.Grants;
         return Results.Ok(new { records, page = currentPage, total = await query.CountAsync(ct),
             kinds = Kinds, documentTypes = DocumentTypes, canSubmit = grants.Contains(Submit),
+            canRequestVendorReview = grants.Contains(Submit) && access.Grant.Subscriber.DevelopmentFixture &&
+                http.RequestServices.GetRequiredService<IWebHostEnvironment>().IsDevelopment(),
             canViewHistory = grants.Contains(History), reviewActions = Decisions.Where(x => grants.Contains(x.Value)).Select(x => x.Key) });
     }
 
@@ -117,7 +121,7 @@ internal static partial class RegulatoryAuthorizations
         if (contentType is null) return ApiSupport.Invalid("evidence", "Upload a PDF, PNG, JPEG, or JSON object.");
 
         await using var tx = await db.LockSubscriberAsync(subscriber, ct);
-        if (await DocumentEndpoints.Access(subscriber, company, Submit, http, db, ct) is null ||
+        if (await DocumentEndpoints.Access(subscriber, company, Submit, http, db, ct) is not { } access ||
             !await db.Branches.AnyAsync(x => x.SubscriberId == subscriber && x.CompanyId == company && x.Id == input.BranchId, ct) ||
             !await db.TaxpayerProfiles.AnyAsync(x => x.SubscriberId == subscriber && x.CompanyId == company, ct))
             return TenantAccess.Missing();
@@ -144,6 +148,7 @@ internal static partial class RegulatoryAuthorizations
             SolutionVersion = input.SolutionVersion.Trim(), Scope = input.Scope.Trim(), EffectiveFrom = input.EffectiveFrom,
             ExpiresOn = input.ExpiresOn, Filename = filename, ContentType = contentType,
             Sha256 = Convert.ToHexString(SHA256.HashData(bytes)), Size = bytes.Length,
+            ScanState = RegulatoryEvidenceScan.Inspect(http, access.Grant.Subscriber.DevelopmentFixture, bytes, contentType),
             SubmittedBy = http.UserId(), SubmittedAt = DateTimeOffset.UtcNow
         };
         db.Add(version);
@@ -183,15 +188,45 @@ internal static partial class RegulatoryAuthorizations
         if (version is null || (!access.Grant.Grants.Contains(History) && await versions.AnyAsync(x => x.Number > number, ct)))
             return TenantAccess.Missing();
 
-        var bytes = await db.Set<RegulatoryAuthorizationFile>().AsNoTracking()
-            .Where(x => x.SubscriberId == subscriber && x.CompanyId == company && x.AuthorizationId == id && x.Number == number)
-            .Select(x => x.Content).SingleOrDefaultAsync(ct);
+        var result = await ServeEvidence(version, http, db, access.Grant.Subscriber.DevelopmentFixture, ct);
+        await db.SaveChangesAsync(ct);
+        return result;
+    }
+
+    internal static Task<RegulatoryAuthorizationVersion[]> CaseVersions(EfiscalDbContext db, VendorReviewCase row, CancellationToken ct) =>
+        Versions(db, row.SubscriberId, row.CompanyId).Where(x => x.AuthorizationId == row.AuthorizationId)
+            .OrderByDescending(x => x.Number).Take(50).ToArrayAsync(ct);
+
+    internal static Task<RegulatoryAuthorizationReview[]> CaseReviews(EfiscalDbContext db, VendorReviewCase row, CancellationToken ct) =>
+        Reviews(db, row.SubscriberId, row.CompanyId).Where(x => x.AuthorizationId == row.AuthorizationId)
+            .OrderByDescending(x => x.Number).ThenByDescending(x => x.Sequence).Take(100).ToArrayAsync(ct);
+
+    internal static async Task<IResult> DownloadCaseEvidence(EfiscalDbContext db, VendorReviewCase row, int number, HttpContext http, CancellationToken ct)
+    {
+        var version = await Versions(db, row.SubscriberId, row.CompanyId)
+            .SingleOrDefaultAsync(x => x.AuthorizationId == row.AuthorizationId && x.Number == number, ct);
+        return version is null ? TenantAccess.Missing() : await ServeEvidence(version, http, db, true, ct);
+    }
+
+    private static async Task<IResult> ServeEvidence(RegulatoryAuthorizationVersion version, HttpContext http, EfiscalDbContext db,
+        bool fixture, CancellationToken ct)
+    {
+        var bytes = await EvidenceBytes(version, db, ct);
         if (bytes is null || bytes.Length != version.Size || Convert.ToHexString(SHA256.HashData(bytes)) != version.Sha256)
             return ApiSupport.Problem(409, "Evidence integrity check failed.");
+        var scan = version.ScanState ?? RegulatoryEvidenceScan.Inspect(http, fixture, bytes, version.ContentType);
+        if (!RegulatoryEvidenceScan.Allows(http, fixture, scan)) return ApiSupport.Problem(409, "Evidence is unavailable pending safe scanning.");
+        db.Audit("Regulatory.AuthorizationEvidenceDownloaded", http.UserId(), version.SubscriberId, version.AuthorizationId);
+        http.Response.Headers.CacheControl = "no-store";
         http.Response.Headers.ContentSecurityPolicy = "sandbox; default-src 'none'";
         http.Response.Headers.XContentTypeOptions = "nosniff";
         return Results.File(bytes, "application/octet-stream", version.Filename);
     }
+
+    private static Task<byte[]?> EvidenceBytes(RegulatoryAuthorizationVersion version, EfiscalDbContext db, CancellationToken ct) =>
+        db.Set<RegulatoryAuthorizationFile>().AsNoTracking().Where(x => x.SubscriberId == version.SubscriberId &&
+            x.CompanyId == version.CompanyId && x.AuthorizationId == version.AuthorizationId && x.Number == version.Number)
+            .Select(x => x.Content).SingleOrDefaultAsync(ct);
 
     private static async Task<IResult> RecordReview(Guid subscriber, Guid company, Guid id, int number, ReviewCommand input,
         HttpContext http, EfiscalDbContext db, CancellationToken ct)
@@ -202,10 +237,27 @@ internal static partial class RegulatoryAuthorizations
         if (await DocumentEndpoints.Access(subscriber, company, grant, http, db, ct) is null) return TenantAccess.Missing();
         await using var tx = await db.LockSubscriberAsync(subscriber, ct);
         if (await DocumentEndpoints.Access(subscriber, company, grant, http, db, ct) is null) return TenantAccess.Missing();
+        var result = await RecordScopedReview(subscriber, company, id, number, input, http, db, ct);
+        await db.SaveChangesAsync(ct);
+        await tx.CommitAsync(ct);
+        return result;
+    }
+
+    internal static async Task<IResult> RecordScopedReview(Guid subscriber, Guid company, Guid id, int number, ReviewCommand input,
+        HttpContext http, EfiscalDbContext db, CancellationToken ct)
+    {
         var latest = await Versions(db, subscriber, company).Where(x => x.AuthorizationId == id)
             .OrderByDescending(x => x.Number).FirstOrDefaultAsync(ct);
         if (latest is null || latest.SubmittedBy == http.UserId()) return TenantAccess.Missing();
         if (latest.Number != number) return ApiSupport.Problem(409, "Review the current authorization version.");
+        if (input.Decision is "ReviewAccepted" or "ExternalAuthorizationDocumented")
+        {
+            var fixture = await db.Subscribers.AnyAsync(x => x.Id == subscriber && x.DevelopmentFixture, ct);
+            var bytes = await EvidenceBytes(latest, db, ct);
+            if (bytes is null || bytes.Length != latest.Size || Convert.ToHexString(SHA256.HashData(bytes)) != latest.Sha256 ||
+                !RegulatoryEvidenceScan.Allows(http, fixture, latest.ScanState ?? RegulatoryEvidenceScan.Inspect(http, fixture, bytes, latest.ContentType)))
+                return ApiSupport.Problem(409, "Safe scanning is required to accept the evidence.");
+        }
         var prior = await Reviews(db, subscriber, company).Where(x => x.AuthorizationId == id && x.Number == number)
             .OrderByDescending(x => x.Sequence).FirstOrDefaultAsync(ct);
         if ((prior?.Sequence ?? 0) != input.ExpectedSequence || !CanReview(prior?.Decision, input.Decision))
@@ -220,8 +272,6 @@ internal static partial class RegulatoryAuthorizations
         };
         db.Add(row);
         db.Audit("Regulatory." + row.Decision, http.UserId(), subscriber, id);
-        await db.SaveChangesAsync(ct);
-        await tx.CommitAsync(ct);
         return Results.Ok(row);
     }
 

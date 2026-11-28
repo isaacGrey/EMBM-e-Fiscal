@@ -106,6 +106,7 @@ public sealed class EfiscalDbContext(DbContextOptions<EfiscalDbContext> options)
     {
         Modules.Reporting.ReportingGateway.Configure(b);
         Modules.Reporting.RegulatoryAuthorizations.Configure(b);
+        Modules.Reporting.VendorRegulatoryReview.Configure(b);
         Modules.Reporting.VendorAccreditation.Configure(b);
         Modules.Reporting.RegulatorySchemas.Configure(b);
         CompanyConfigurationModel.Configure(b);

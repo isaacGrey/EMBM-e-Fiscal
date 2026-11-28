@@ -88,7 +88,7 @@ internal static class ConnectorRules
     public static async Task GrantLocal(EfiscalDbContext db, Guid user)
     {
         var current = await db.VendorConnectorGrants.Where(x => x.UserId == user).Select(x => x.Permission).ToListAsync();
-        db.VendorConnectorGrants.AddRange(VendorGrants.Concat(Reporting.VendorAccreditation.Grants).Except(current)
+        db.VendorConnectorGrants.AddRange(VendorGrants.Concat(Reporting.VendorAccreditation.Grants).Append(Reporting.VendorRegulatoryReview.Manage).Except(current)
             .Select(permission => new VendorConnectorGrant { UserId = user, Permission = permission }));
     }
 }
