@@ -1,7 +1,7 @@
 namespace Embm.EFiscal.Api.Modules.Identity;
 
 public enum IdentityStatus { PendingEmailVerification, Verified, Suspended, Disabled }
-public enum IdentityKind { Customer, Vendor }
+public enum IdentityKind { Customer, Vendor, Regulator }
 public enum TokenPurpose { VerifyEmail, ResetPassword }
 
 public sealed class User

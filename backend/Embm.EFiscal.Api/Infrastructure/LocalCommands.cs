@@ -1,6 +1,7 @@
 using System.Text.Json;
 using System.Text.RegularExpressions;
 using Embm.EFiscal.Api.Modules.Identity;
+using Embm.EFiscal.Api.Modules.Reporting;
 using Embm.EFiscal.Api.Modules.Connect;
 using Embm.EFiscal.Api.Modules.Tenants;
 using Microsoft.AspNetCore.Identity;
@@ -26,6 +27,11 @@ internal static class LocalCommands
         if (args[0] == "--import-rdos")
         {
             await ImportRdos(db, args[1]);
+            return;
+        }
+        if (RegulatorFixtureCommands.IsCommand(args[0]))
+        {
+            await RegulatorFixtureCommands.Run(app, scope.ServiceProvider, db, args[0], args[1]);
             return;
         }
         if (!ApiSupport.Email(args[1])) throw new ArgumentException("Supply a valid development email.");

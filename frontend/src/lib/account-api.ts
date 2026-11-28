@@ -39,7 +39,7 @@ export const errorMessage = (error: unknown) => error instanceof ApiError
 
 export type Session = {
   id: string; fullName: string; mobile: string; email: string
-  kind: 'Customer' | 'Vendor'; status: string; pending: PendingSubscription | null
+  kind: 'Customer' | 'Vendor' | 'Regulator'; status: string; pending: PendingSubscription | null
 }
 export type PendingSubscription = { planId: string; billing: 'monthly' | 'annual'; classification: 'b2b' | 'b2c'; status: 'PendingPayment' }
 

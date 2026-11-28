@@ -1,5 +1,6 @@
 using System.Text.RegularExpressions;
 using Embm.EFiscal.Api.Infrastructure;
+using Embm.EFiscal.Api.Modules.Reporting;
 using Embm.EFiscal.Api.Modules.Billing;
 using Microsoft.AspNetCore.Antiforgery;
 using Microsoft.AspNetCore.Authentication;
@@ -46,8 +47,14 @@ public static partial class IdentityEndpoints
             !env.IsDevelopment() || !config.GetValue<bool>("Identity:EnableLocalVendorLogin")
                 ? ApiSupport.Problem(403, "Vendor sign-in requires configured MFA")
                 : await Login(input, IdentityKind.Vendor, http, db, hasher, ct)).AllowAnonymous().RequireRateLimiting("identity");
-        // Fail closed before accessing storage or accepting any credential.
-        app.MapPost("/api/auth/bir/login", () => ApiSupport.Problem(403, "BIR access is disabled")).AllowAnonymous().WithTags("Identity");
+        var localRegulator = RegulatorAccess.Enabled(app.Environment, app.Configuration);
+        app.MapGet("/api/auth/bir/availability", () => Results.Ok(new { enabled = localRegulator })).AllowAnonymous().WithTags("Identity");
+        if (localRegulator)
+            auth.MapPost("/bir/login", (LoginRequest input, HttpContext http, EfiscalDbContext db,
+                IPasswordHasher<User> hasher, CancellationToken ct) =>
+                Login(input, IdentityKind.Regulator, http, db, hasher, ct)).AllowAnonymous().RequireRateLimiting("identity");
+        else
+            app.MapPost("/api/auth/bir/login", () => ApiSupport.Problem(403, "BIR access is disabled")).AllowAnonymous().WithTags("Identity");
         auth.MapGet("/me", Me);
         auth.MapPost("/logout", Logout);
         auth.MapPut("/profile", UpdateProfile).RequireAuthorization("customer");
@@ -170,7 +177,8 @@ public static partial class IdentityEndpoints
         var identity = (await IdentitySecurity.LockAsync(db, id.Value, ct))!;
         var now = DateTimeOffset.UtcNow;
         var development = http.RequestServices.GetRequiredService<IWebHostEnvironment>().IsDevelopment();
-        if ((!development && identity.User.DevelopmentFixture) || identity.LockedUntil > now ||
+        if ((!development && identity.User.DevelopmentFixture) || (kind == IdentityKind.Regulator && !identity.User.DevelopmentFixture) ||
+            identity.LockedUntil > now ||
             identity.User.Status is IdentityStatus.Disabled or IdentityStatus.Suspended) return LoginFailed();
         var password = hasher.VerifyHashedPassword(identity.User, identity.PasswordHash, input.Password);
         if (password == PasswordVerificationResult.Failed)

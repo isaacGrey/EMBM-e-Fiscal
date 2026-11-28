@@ -182,8 +182,10 @@ The adjacent `/preservation` routes record retention policy versions and scoped 
 
 `GET /api/billing/subscribers/{subscriber}/provider-records` lists confirmed commercial charges and refunds scoped to the authorized subscriber. Provider invoice and tax fields remain unavailable pending verified authorization. No client fiscal record or wallet entry is created.
 
-## Future regulator read contract
+## Development regulator read contract
 
-A regulator read request would specify the taxpayer, company, date range and optional branches for an allowed record category. The server would intersect requested scope with an independently authorized, active and unexpired read grant. Any RDO restriction would use effective company or branch assignments for the records requested. Nationwide access would require a separate explicit grant. A request parameter cannot confer scope.
+`GET /api/auth/bir/availability` reports whether the explicit synthetic Development fixture is enabled. Its sign-in at `POST /api/auth/bir/login` uses the existing anti-forgery and identity controls with a separate regulator identity. Production sign-in returns 403 and record routes are unavailable.
 
-The records available to this contract would be committed invoice and credit memo data, applicable tax summaries, reconciliation evidence, reporting history and authorized audit evidence. Each read and export would record the grant and resolved scope. The contract defines future authorization requirements. There are no regulator accounts, credentials or read endpoints for this contract in Phase 10.
+`GET /api/bir/grants` returns the regulator's current grants. `GET /api/bir/records/{category}` takes `grantId`, `subscriberId`, `companyId`, inclusive `from` and `through` business dates, and optional `branchId`, `rdo`, `page` and `export`. Categories are `documents`, `tax-summary`, `reconciliation`, `reporting` and `audit`. Pages contain up to 50 rows. Each request resolves one active grant, intersects the filters with its authorized scope, and records the resulting read audit. Scope or permission failures return 404 to an authenticated regulator. The optional export adds a download disposition and requires separate permission.
+
+RDO matches use effective-dated assignments with branch precedence. Nationwide reads require a separate explicit grant. The production contract remains subject to verified BIR authorization and identity requirements. [Fixture guide](REGULATOR_PORTAL.md)

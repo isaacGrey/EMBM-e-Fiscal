@@ -2,6 +2,7 @@ using System.Security.Claims;
 using System.Security.Cryptography;
 using System.Text;
 using Embm.EFiscal.Api.Infrastructure;
+using Embm.EFiscal.Api.Modules.Reporting;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Identity;
@@ -62,17 +63,22 @@ internal static class IdentitySecurity
         var environment = http.RequestServices.GetRequiredService<IWebHostEnvironment>();
         if (!string.IsNullOrWhiteSpace(http.RequestServices.GetRequiredService<IConfiguration>().GetConnectionString("Efiscal")) &&
             Guid.TryParse(context.Principal?.FindFirstValue(ClaimTypes.NameIdentifier), out var id) &&
-            Guid.TryParse(context.Principal?.FindFirstValue("sid"), out var sid))
+            Guid.TryParse(context.Principal?.FindFirstValue("sid"), out var sid) &&
+            Enum.TryParse<IdentityKind>(context.Principal?.FindFirstValue("identity_kind"), out var kind))
         {
             var now = DateTimeOffset.UtcNow;
             var development = environment.IsDevelopment();
-            var vendorEnabled = development && http.RequestServices.GetRequiredService<IConfiguration>().GetValue<bool>("Identity:EnableLocalVendorLogin");
+            var configuration = http.RequestServices.GetRequiredService<IConfiguration>();
+            var vendorEnabled = development && configuration.GetValue<bool>("Identity:EnableLocalVendorLogin");
+            var regulatorEnabled = RegulatorAccess.Enabled(environment, configuration);
             var valid = await (from session in db.Sessions
                                join identity in db.UserIdentities on session.UserId equals identity.UserId
                                where session.Id == sid && session.UserId == id && session.RevokedAt == null && session.ExpiresAt > now
                                    && session.SecurityStamp == identity.SecurityStamp && identity.User.Status == IdentityStatus.Verified
+                                   && identity.User.Kind == kind
                                    && (development || !identity.User.DevelopmentFixture)
-                                   && (identity.User.Kind == IdentityKind.Customer || vendorEnabled)
+                                   && (identity.User.Kind == IdentityKind.Customer || identity.User.Kind == IdentityKind.Vendor && vendorEnabled ||
+                                       identity.User.Kind == IdentityKind.Regulator && identity.User.DevelopmentFixture && regulatorEnabled)
                                select session.Id).AnyAsync(http.RequestAborted);
             if (valid) return;
         }

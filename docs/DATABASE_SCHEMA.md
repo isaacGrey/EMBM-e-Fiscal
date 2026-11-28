@@ -102,3 +102,7 @@ Migration 20261127063356 adds RegulatorySchemaVersions and seeds the internal ca
 ## Phase 10 taxpayer governance
 
 The additive taxpayer portability migration creates immutable export archives, retention policy versions, scoped legal holds and separate release records. The continuity migration adds append-only incident, manual reference and fictional deadline policy revisions. It also adds infrastructure to the existing private provider accreditation register. These migrations do not delete financial records or enable automated disposal.
+
+## Development regulator access
+
+`RegulatorGrants` records time-bounded synthetic identity grants with explicit company, RDO or nationwide scope, allowed record categories and optional export permission. Composite foreign keys enforce tenant-company-branch consistency. A database trigger permits revocation as the only update. `RegulatorReadAudits` preserves the grant, requesting identity, resolved parameters, page, response count, time and export indicator. Audit rows are append-only.

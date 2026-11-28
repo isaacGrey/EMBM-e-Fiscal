@@ -50,6 +50,7 @@ builder.Services.AddAuthorization(options =>
 {
     options.FallbackPolicy = new AuthorizationPolicyBuilder().RequireAuthenticatedUser().Build();
     options.AddPolicy("customer", policy => policy.RequireAuthenticatedUser().RequireClaim("identity_kind", nameof(IdentityKind.Customer)));
+    options.AddPolicy("regulator", policy => policy.RequireAuthenticatedUser().RequireClaim("identity_kind", nameof(IdentityKind.Regulator)));
     options.AddPolicy("vendor", policy => policy.RequireAuthenticatedUser().RequireClaim("identity_kind", nameof(IdentityKind.Vendor)));
 });
 builder.Services.AddRateLimiter(options =>
@@ -117,7 +118,7 @@ builder.Services.AddDbContext<EfiscalDbContext>(options =>
 });
 
 var app = builder.Build();
-if (args.Length > 0 && args[0] is ("--provision-dev" or "--bootstrap-local-vendor" or "--import-rdos"))
+if (args.Length > 0 && (args[0] is "--provision-dev" or "--bootstrap-local-vendor" or "--import-rdos" || RegulatorFixtureCommands.IsCommand(args[0])))
 {
     await LocalCommands.RunAsync(app, args);
     return;
@@ -145,6 +146,7 @@ app.MapBilling();
 app.MapMasterData();
 app.MapDocuments();
 app.MapReporting();
+app.MapRegulatorAccess();
 app.MapTaxpayerPortability();
 app.MapTaxpayerPreservation();
 app.MapReportingContinuity();

@@ -3583,6 +3583,122 @@ namespace Embm.EFiscal.Api.Infrastructure.Migrations
                     b.ToTable("LegalHoldReleases", (string)null);
                 });
 
+            modelBuilder.Entity("Embm.EFiscal.Api.Modules.Reporting.RegulatorGrant", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("BranchId")
+                        .HasColumnType("uuid");
+
+                    b.Property<bool>("CanExport")
+                        .HasColumnType("boolean");
+
+                    b.PrimitiveCollection<string[]>("Categories")
+                        .IsRequired()
+                        .HasColumnType("text[]");
+
+                    b.Property<Guid?>("CompanyId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset>("ExpiresAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("RdoCode")
+                        .HasColumnType("text");
+
+                    b.Property<string>("Reference")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<DateTimeOffset?>("RevokedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Scope")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<DateTimeOffset>("StartsAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("SubscriberId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("RdoCode");
+
+                    b.HasIndex("UserId", "ExpiresAt");
+
+                    b.HasIndex("SubscriberId", "CompanyId", "BranchId");
+
+                    b.ToTable("RegulatorGrants", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_RegulatorGrant_Period", " \"ExpiresAt\" > \"StartsAt\" ");
+
+                            t.HasCheckConstraint("CK_RegulatorGrant_Scope", "(\"Scope\" = 'Company' AND \"SubscriberId\" IS NOT NULL AND \"CompanyId\" IS NOT NULL AND \"RdoCode\" IS NULL) OR\n(\"Scope\" = 'Rdo' AND \"SubscriberId\" IS NULL AND \"CompanyId\" IS NULL AND \"BranchId\" IS NULL AND \"RdoCode\" IS NOT NULL) OR\n(\"Scope\" = 'Nationwide' AND \"SubscriberId\" IS NULL AND \"CompanyId\" IS NULL AND \"BranchId\" IS NULL AND \"RdoCode\" IS NULL)");
+                        });
+                });
+
+            modelBuilder.Entity("Embm.EFiscal.Api.Modules.Reporting.RegulatorReadAudit", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
+
+                    b.Property<DateTimeOffset>("At")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("BranchId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Category")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<Guid>("CompanyId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("Count")
+                        .HasColumnType("integer");
+
+                    b.Property<bool>("Export")
+                        .HasColumnType("boolean");
+
+                    b.Property<DateOnly>("From")
+                        .HasColumnType("date");
+
+                    b.Property<Guid>("GrantId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("Page")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("RdoCode")
+                        .HasColumnType("text");
+
+                    b.Property<Guid>("SubscriberId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateOnly>("Through")
+                        .HasColumnType("date");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("GrantId");
+
+                    b.ToTable("RegulatorReadAudits", (string)null);
+                });
+
             modelBuilder.Entity("Embm.EFiscal.Api.Modules.Reporting.RegulatoryAuthorization", b =>
                 {
                     b.Property<Guid>("SubscriberId")
@@ -6828,6 +6944,41 @@ namespace Embm.EFiscal.Api.Infrastructure.Migrations
                     b.HasOne("Embm.EFiscal.Api.Modules.Reporting.LegalHold", null)
                         .WithOne()
                         .HasForeignKey("Embm.EFiscal.Api.Modules.Reporting.LegalHoldRelease", "HoldId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Embm.EFiscal.Api.Modules.Reporting.RegulatorGrant", b =>
+                {
+                    b.HasOne("Embm.EFiscal.Api.Modules.Tenants.RdoReference", null)
+                        .WithMany()
+                        .HasForeignKey("RdoCode")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("Embm.EFiscal.Api.Modules.Identity.User", null)
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Embm.EFiscal.Api.Modules.Tenants.Company", null)
+                        .WithMany()
+                        .HasForeignKey("SubscriberId", "CompanyId")
+                        .HasPrincipalKey("SubscriberId", "Id")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("Embm.EFiscal.Api.Modules.Tenants.Branch", null)
+                        .WithMany()
+                        .HasForeignKey("SubscriberId", "CompanyId", "BranchId")
+                        .HasPrincipalKey("SubscriberId", "CompanyId", "Id")
+                        .OnDelete(DeleteBehavior.Restrict);
+                });
+
+            modelBuilder.Entity("Embm.EFiscal.Api.Modules.Reporting.RegulatorReadAudit", b =>
+                {
+                    b.HasOne("Embm.EFiscal.Api.Modules.Reporting.RegulatorGrant", null)
+                        .WithMany()
+                        .HasForeignKey("GrantId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
                 });

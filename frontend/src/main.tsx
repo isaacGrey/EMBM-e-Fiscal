@@ -26,6 +26,7 @@ const Invitation = lazy(() => import('@/pages/identity').then(module => ({ defau
 const VendorWorkspace = lazy(() => import('@/pages/identity').then(module => ({ default: module.VendorWorkspace })))
 const ClientWorkspace = lazy(() => import('@/pages/workspace').then(module => ({ default: module.ClientWorkspace })))
 const BirSignIn = lazy(() => import('@/pages/portals').then(module => ({ default: module.BirSignIn })))
+const BirWorkspace = lazy(() => import('@/pages/regulator').then(module => ({ default: module.BirWorkspace })))
 const PortalLayout = lazy(() => import('@/pages/portals').then(module => ({ default: module.PortalLayout })))
 const queryClient = new QueryClient()
 
@@ -80,7 +81,7 @@ function App() {
         <Route path="/portal/vendor/regulatory-schemas" element={<VendorWorkspace />} />
         <Route path="/portal/vendor/connectors" element={<VendorWorkspace />} />
         <Route path="/portal/vendor/connectors/:connectorId" element={<VendorWorkspace />} />
-        <Route path="/portal/bir" element={<PortalLayout role="bir" />} />
+        <Route path="/portal/bir" element={<BirWorkspace />} />
         <Route path="*" element={<main className="container section" id="main-content"><h1>Page not found</h1><Link className="text-link" to="/">Back to EMBM eFiscal</Link></main>} />
       </Routes>
     </Suspense>

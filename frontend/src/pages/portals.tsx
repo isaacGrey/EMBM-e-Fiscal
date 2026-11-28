@@ -1,9 +1,11 @@
-import { useQuery } from '@tanstack/react-query'
+import { useState, type FormEvent } from 'react'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { ArrowLeft, ArrowRight, Building2, FileText, LayoutDashboard, LockKeyhole, Settings, ShieldCheck, Users, Wallet } from 'lucide-react'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { Brand } from '@/components/brand'
 import { Badge, Button, Card, Dialog, DialogContent, DialogTrigger, EmptyState, ErrorState, Field, Input, LoadingState } from '@/components/ui'
 import { WorkspacePreview } from '@/components/workspace-preview'
+import { api, errorMessage } from '@/lib/account-api'
 import { healthQuery } from '@/lib/platform'
 
 export const portals = {
@@ -20,20 +22,45 @@ function BackHome() {
   return <Link className="back-link" to="/"><ArrowLeft size={16} /> Back to EMBM eFiscal</Link>
 }
 
+export const birAvailability = {
+  queryKey: ['local-bir-availability'], queryFn: () => api<{ enabled: boolean }>('/auth/bir/availability'), retry: false,
+} as const
+
 export function BirSignIn() {
+  const enabled = useQuery(birAvailability).data?.enabled === true
+  const navigate = useNavigate()
+  const cache = useQueryClient()
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState('')
+  async function signIn(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    if (!enabled) return
+    const form = new FormData(event.currentTarget)
+    setBusy(true)
+    setError('')
+    try {
+      await api('/auth/bir/login', 'POST', { email: form.get('email'), password: form.get('password') })
+      cache.clear()
+      navigate('/portal/bir', { replace: true, state: { rdo: form.get('rdo') } })
+    } catch (failure) { setError(errorMessage(failure)) }
+    finally { setBusy(false) }
+  }
   return <main className="access-page access-bir" id="main-content">
     <div className="access-wrap sign-in-wrap">
       <Brand /><BackHome />
       <Card className="sign-in-card">
         <span className="icon-tile"><ShieldCheck size={23} /></span>
         <h1>BIR Read-Only Portal</h1>
-        <p>Regulator access requires formal authorization. Sign-in is disabled.</p>
-        <fieldset>
-          <Field id="bir-user" label="Authorized government email or user ID"><Input id="bir-user" disabled autoComplete="username" /></Field>
-          <Field id="bir-password" label="Password"><Input id="bir-password" disabled type="password" autoComplete="current-password" /></Field>
-          <Field id="bir-rdo" label="Requested RDO context (optional)"><Input id="bir-rdo" inputMode="numeric" placeholder="Registered RDO code" /></Field>
-          <Button type="button" disabled>Sign In <LockKeyhole size={15} /></Button>
-        </fieldset>
+        <p>{enabled ? 'Sign in with a synthetic regulator account.' : 'Regulator access requires formal authorization. Sign-in is disabled.'}</p>
+        <form onSubmit={event => void signIn(event)}><fieldset disabled={busy}>
+          <Field id="bir-user" label={enabled ? 'Synthetic regulator email' : 'Authorized government email or user ID'}>
+            <Input id="bir-user" name="email" type="email" disabled={!enabled} autoComplete="username" required maxLength={254} />
+          </Field>
+          <Field id="bir-password" label="Password"><Input id="bir-password" name="password" disabled={!enabled} type="password" autoComplete="current-password" required maxLength={128} /></Field>
+          <Field id="bir-rdo" label="Requested RDO context (optional)"><Input id="bir-rdo" name="rdo" inputMode="numeric" placeholder="Registered RDO code" pattern="[0-9]{3}[A-Z]?" maxLength={4} /></Field>
+          {error && <ErrorState>{error}</ErrorState>}
+          <Button type="submit" disabled={!enabled}>{busy ? 'Signing in…' : 'Sign In'} <LockKeyhole size={15} /></Button>
+        </fieldset></form>
         <p className="access-footnote">An RDO request never grants access. An authorized identity provider will enforce regulator permissions and multi-factor authentication.</p>
       </Card>
     </div>
