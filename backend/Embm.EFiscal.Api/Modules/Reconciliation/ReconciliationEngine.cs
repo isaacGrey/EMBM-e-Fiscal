@@ -96,6 +96,8 @@ internal sealed class ReconciliationEngine(EfiscalDbContext db, DevelopmentAccou
         check.ProtectedComparison = Evidence(subscriber, company).Protect(Freeze(cells).GetRawText());
         await AddFindings(check, cells.Where(x => x.State == "Mismatch").Select(x => (x.Category,
             x.Line is null ? x.Field : x.Line + "." + x.Field)), ct);
+        if (check.Completeness == "Complete" && check.Status is "Matched" or "MatchedWithinTolerance")
+            await ResolvePrior(check, ct, ExternalKey(link.Id, record.Type, record.Id));
         return check;
     }
 
@@ -138,7 +140,6 @@ internal sealed class ReconciliationEngine(EfiscalDbContext db, DevelopmentAccou
                 if (found is not null)
                 {
                     Finish(check, "CounterpartLinked", "Complete", "Excluded");
-                    await ResolvePrior(check, ct);
                 }
                 else Finish(check, "MissingEfiscalRecord", "Complete", "Conclusive");
             }
@@ -187,10 +188,11 @@ internal sealed class ReconciliationEngine(EfiscalDbContext db, DevelopmentAccou
         await ResolvePrior(check, ct);
     }
 
-    private async Task ResolvePrior(ReconciliationCheck check, CancellationToken ct)
+    private async Task ResolvePrior(ReconciliationCheck check, CancellationToken ct, string? unitKey = null)
     {
+        var key = unitKey ?? check.UnitKey;
         var old = await db.ReconciliationFindings.AsNoTracking().Where(x => x.SubscriberId == check.SubscriberId &&
-            x.CompanyId == check.CompanyId && x.UnitKey == check.UnitKey &&
+            x.CompanyId == check.CompanyId && x.UnitKey == key &&
             !db.ReconciliationReviews.Any(r => r.FindingId == x.Id && r.Status == "ResolvedAfterVerification")).ToArrayAsync(ct);
         db.ReconciliationReviews.AddRange(old.Select(x => new ReconciliationReview
         {

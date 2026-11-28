@@ -111,9 +111,9 @@ internal sealed class DevelopmentAccountingRead(EfiscalDbContext db, ConnectionR
     private static AccountingValues ObserveChanges(AccountingValues current, string? scenario)
     {
         if (scenario == "Unsupported") return current with { Lines = null };
-        if (scenario is "Vat" or "Discount" or "Customer")
+        if (scenario is "Vat" or "Discount" or "Total" or "Customer")
         {
-            var field = scenario switch { "Vat" => "vat", "Discount" => "commercialDiscount", _ => "customer" };
+            var field = scenario switch { "Vat" => "vat", "Discount" => "commercialDiscount", "Total" => "total", _ => "customer" };
             current.Header[field] = scenario == "Customer" ? Freeze("different-customer") : Freeze(-1m);
         }
         if (current.Lines is not { Length: > 0 } lines) return current;

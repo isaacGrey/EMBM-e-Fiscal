@@ -131,7 +131,7 @@ function OverviewMetrics({ stats }: { stats: ReconciliationOverview }) {
     ['Exact match rate', percentage(stats.matchRate)], ['Verification coverage', percentage(stats.verificationCoverage)],
   ] as const
   return <><dl className="connect-grid reconciliation-metrics">{values.map(([label, value]) => <div key={label}><dt>{label}</dt><dd>{value}</dd></div>)}</dl>
-    <p>Exact match rate uses conclusive eligible outcomes. Verification coverage uses all eligible comparison units. Historical and out-of-scope records are excluded from both rates.</p>
+    <p>Exact match rate uses fresh, conclusive eligible outcomes. Verification coverage compares those outcomes with all eligible units. Historical and out-of-scope records are excluded from both rates.</p>
     {stats.latest && <p>Latest successful verification {manilaTimestamp.format(new Date(stats.latest))}</p>}</>
 }
 

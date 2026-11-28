@@ -82,7 +82,7 @@ internal sealed class ReconciliationWorker(IServiceScopeFactory services, ILogge
             else
             {
                 outcome = await Batch(db, engine, link.Id, policy, job, ct);
-                JobResult(job, outcome);
+                JobResult(job, outcome, outcome == "RateLimited");
             }
             await db.SaveChangesAsync(ct);
             await tx.CommitAsync(ct);
@@ -134,9 +134,18 @@ internal sealed class ReconciliationWorker(IServiceScopeFactory services, ILogge
                 (job.Through == null || document.Date <= job.Through)
             orderby pin.DocumentId
             select pin.DocumentId).Take(policy?.BatchSize ?? 25).ToArrayAsync(ct);
-        foreach (var id in ids) await engine.Document(link, policy, id, job.Id, ct);
+        foreach (var id in ids)
+        {
+            var check = await engine.Document(link, policy, id, job.Id, ct);
+            if (check.Retrieval == "RateLimited")
+            {
+                if (job.Attempts < 4) db.ReconciliationChecks.Remove(check);
+                return check.Retrieval;
+            }
+            job.DocumentCursor = id;
+            job.Attempts = 1;
+        }
         if (ids.Length < (policy?.BatchSize ?? 25)) return "Complete";
-        job.DocumentCursor = ids[^1];
         return "Continue";
     }
 

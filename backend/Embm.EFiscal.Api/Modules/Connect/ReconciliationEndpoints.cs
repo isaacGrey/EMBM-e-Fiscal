@@ -107,6 +107,9 @@ internal static partial class ClientConnectEndpoints
         var now = DateTimeOffset.UtcNow;
         var effective = input.EffectiveAt ?? now;
         if (effective < now.AddMinutes(-1) || effective > now.AddYears(1)) return ApiSupport.Invalid("effectiveAt", "Use a current or future effective timestamp.");
+        if (await Coverage.For(db, subscriber, company).AnyAsync(x => x.ConnectionId == revision.ConnectionId &&
+            x.Number < revision.Number && x.EffectiveAt > effective, ct))
+            return Conflict("A later version cannot take effect before an already scheduled version.");
         if (await Coverage.Conflicts(db, revision.Connection, revision, effective, ct) ||
             await Coverage.For(db, subscriber, company).AnyAsync(x => x.ConnectionId != revision.ConnectionId &&
                 x.EffectiveAt > effective && x.Types.Any(t => revision.Types.Contains(t)) &&
@@ -134,7 +137,8 @@ internal static partial class ClientConnectEndpoints
         if (input.DocumentId is Guid document)
         {
             var scope = db.FiscalDocuments.AsNoTracking().Where(x => x.SubscriberId == subscriber && x.CompanyId == company && x.Id == document);
-            if (!await scope.AnyAsync(ct)) return TenantAccess.Missing();
+            var type = await scope.Select(x => x.Type).SingleOrDefaultAsync(ct);
+            if (type is null || !Grant(http).Grants.Contains(DocumentRules.Permission(type, false))) return TenantAccess.Missing();
             var pin = await db.SyncOperations.AsNoTracking().Where(x => x.SubscriberId == subscriber && x.CompanyId == company &&
                 x.DocumentId == document).Select(x => (Guid?)x.ConnectionId).SingleOrDefaultAsync(ct);
             var reliable = pin ?? await db.AccountingMatches.Where(x => x.SubscriberId == subscriber && x.CompanyId == company && x.DocumentId == document)
@@ -202,7 +206,7 @@ internal static partial class ClientConnectEndpoints
         EfiscalDbContext db, DevelopmentAccountingRead accounting, CancellationToken ct)
     {
         if (!MockAccess(http)) return TenantAccess.Missing();
-        string[] scenarios = ["Exact", "Vat", "Discount", "Customer", "Quantity", "Price", "TaxClass", "MissingLine", "ExtraLine", "DuplicateLine",
+        string[] scenarios = ["Exact", "Vat", "Discount", "Total", "Customer", "Quantity", "Price", "TaxClass", "MissingLine", "ExtraLine", "DuplicateLine",
             "Reorder", "Unsupported", "Missing", "Duplicate", "Unavailable", "RateLimit", "IncompletePagination"];
         if (!scenarios.Contains(input.Scenario)) return ApiSupport.Invalid("scenario", "Choose an approved development scenario.");
         var pin = await db.SyncOperations.AsNoTracking().SingleOrDefaultAsync(x => x.SubscriberId == subscriber && x.CompanyId == company && x.DocumentId == id, ct);

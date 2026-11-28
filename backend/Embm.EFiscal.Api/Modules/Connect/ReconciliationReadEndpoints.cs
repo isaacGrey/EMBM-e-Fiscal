@@ -69,7 +69,7 @@ internal static partial class ClientConnectEndpoints
         if (!MockAccess(http)) return TenantAccess.Missing();
         var now = DateTimeOffset.UtcNow;
         var rows = FilterChecks(db, subscriber, company, filter with { History = false }, now);
-        var groups = await rows.GroupBy(x => new { x.Status, x.Completeness, x.Coverage })
+        var groups = await rows.GroupBy(x => new { x.Status, x.Completeness, x.Coverage, Stale = x.FreshUntil < now && x.Retrieval == "Complete" })
             .Select(g => new { g.Key, Count = g.Count(), Findings = g.Sum(x => x.FindingCount) }).ToArrayAsync(ct);
         var pending = from pin in db.SyncOperations.AsNoTracking()
                       join doc in db.FiscalDocuments.AsNoTracking() on pin.DocumentId equals doc.Id
@@ -81,13 +81,14 @@ internal static partial class ClientConnectEndpoints
         var uncheckedCount = filter.Status is null && filter.Category is null && filter.CoverageMode is null &&
             string.IsNullOrWhiteSpace(filter.Search) ? await pending.CountAsync(ct) : 0;
         var eligible = groups.Where(g => g.Key.Coverage == "Eligible" && g.Key.Completeness != "Excluded").ToArray();
-        var conclusive = eligible.Where(g => g.Key.Completeness is "Complete" or "Conclusive").Sum(x => x.Count);
+        var conclusive = eligible.Where(g => !g.Key.Stale && g.Key.Completeness is "Complete" or "Conclusive").Sum(x => x.Count);
         var total = eligible.Sum(x => x.Count) + uncheckedCount;
-        var exact = eligible.Where(g => g.Key.Status == "Matched").Sum(x => x.Count);
+        var exact = eligible.Where(g => !g.Key.Stale && g.Key.Status == "Matched").Sum(x => x.Count);
         var stale = await rows.CountAsync(x => x.FreshUntil < now && x.Coverage == "Eligible" && x.Retrieval == "Complete", ct);
         var latest = await rows.Where(x => x.Status == "Matched" || x.Status == "MatchedWithinTolerance").MaxAsync(x => (DateTimeOffset?)x.At, ct);
         int Count(string status) => groups.Where(x => x.Key.Status == status).Sum(x => x.Count);
-        return Results.Ok(new { eligible = total, conclusive, exact, withinTolerance = Count("MatchedWithinTolerance"),
+        return Results.Ok(new { eligible = total, conclusive, exact,
+            withinTolerance = eligible.Where(g => !g.Key.Stale && g.Key.Status == "MatchedWithinTolerance").Sum(x => x.Count),
             partial = Count("PartialVerification"), findings = eligible.Sum(x => x.Findings), discrepancyUnits = eligible.Where(x => x.Findings > 0).Sum(x => x.Count),
             missingAccounting = Count("MissingAccountingRecord"), missingEfiscal = Count("MissingEfiscalRecord"), duplicates = Count("DuplicateExternalRecords"),
             awaiting = Count("AwaitingSynchronization"), notYetVerified = uncheckedCount, stale, latest,
