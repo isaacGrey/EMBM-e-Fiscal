@@ -3659,6 +3659,119 @@ namespace Embm.EFiscal.Api.Infrastructure.Migrations
                         });
                 });
 
+            modelBuilder.Entity("Embm.EFiscal.Api.Modules.Reporting.RegulatoryConnectorEvent", b =>
+                {
+                    b.Property<int>("Version")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("Sequence")
+                        .HasColumnType("integer");
+
+                    b.Property<Guid>("Actor")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset>("At")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Reason")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("State")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.HasKey("Version", "Sequence");
+
+                    b.ToTable("RegulatoryConnectorEvent");
+                });
+
+            modelBuilder.Entity("Embm.EFiscal.Api.Modules.Reporting.RegulatoryConnectorTest", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("Actor")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset>("At")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("PayloadHash")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<JsonElement>("Response")
+                        .HasColumnType("jsonb");
+
+                    b.Property<string>("ResponseHash")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("Scenario")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<int>("Version")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Version");
+
+                    b.ToTable("RegulatoryConnectorTest");
+                });
+
+            modelBuilder.Entity("Embm.EFiscal.Api.Modules.Reporting.RegulatoryConnectorVersion", b =>
+                {
+                    b.Property<int>("Number")
+                        .HasColumnType("integer");
+
+                    b.Property<Guid>("Actor")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("ApiVersion")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<DateTimeOffset>("At")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("Attempts")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("AuthenticationAdapter")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<bool>("Batch")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("Documentation")
+                        .HasColumnType("text");
+
+                    b.Property<string>("Environment")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("Origin")
+                        .HasColumnType("text");
+
+                    b.Property<int>("RateLimit")
+                        .HasColumnType("integer");
+
+                    b.Property<JsonElement>("Specification")
+                        .HasColumnType("jsonb");
+
+                    b.Property<int>("TimeoutSeconds")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Number");
+
+                    b.ToTable("RegulatoryConnectorVersion");
+                });
+
             modelBuilder.Entity("Embm.EFiscal.Api.Modules.Reporting.RegulatorySchemaVersion", b =>
                 {
                     b.Property<string>("Version")
@@ -6426,6 +6539,24 @@ namespace Embm.EFiscal.Api.Infrastructure.Migrations
                     b.HasOne("Embm.EFiscal.Api.Modules.Reporting.RegulatoryAuthorization", null)
                         .WithMany()
                         .HasForeignKey("SubscriberId", "CompanyId", "AuthorizationId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Embm.EFiscal.Api.Modules.Reporting.RegulatoryConnectorEvent", b =>
+                {
+                    b.HasOne("Embm.EFiscal.Api.Modules.Reporting.RegulatoryConnectorVersion", null)
+                        .WithMany()
+                        .HasForeignKey("Version")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Embm.EFiscal.Api.Modules.Reporting.RegulatoryConnectorTest", b =>
+                {
+                    b.HasOne("Embm.EFiscal.Api.Modules.Reporting.RegulatoryConnectorVersion", null)
+                        .WithMany()
+                        .HasForeignKey("Version")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
                 });

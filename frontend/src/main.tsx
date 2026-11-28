@@ -74,6 +74,7 @@ function App() {
         <Route path="/portal/client/*" element={<ClientWorkspace />} />
         <Route path="/preview/client" element={<PortalLayout role="client" />} />
         <Route path="/portal/vendor" element={<VendorWorkspace />} />
+        <Route path="/portal/vendor/bir-connector" element={<VendorWorkspace />} />
         <Route path="/portal/vendor/taxpayer-review" element={<VendorWorkspace />} />
         <Route path="/portal/vendor/accreditation" element={<VendorWorkspace />} />
         <Route path="/portal/vendor/regulatory-schemas" element={<VendorWorkspace />} />
